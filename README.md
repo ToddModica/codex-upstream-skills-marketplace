@@ -91,7 +91,7 @@ pwsh -NoLogo -NoProfile -File .\scripts\Update-Marketplace.ps1
 
 `.github/workflows/sync-sources.yml` 已启用以下流程：
 
-- 每天北京时间 11:17 自动检查上游；
+- 每天北京时间 01:17 自动检查上游；
 - 支持在 GitHub Actions 页面手动运行；
 - 按 `sources.json` 锁定的仓库和 Skill 子目录同步内容；
 - 同步 Academic Research、Nature、SciPilot、Bilibili 阅读器、PowerShell 安全调用、Taste 前端设计及其他已打包 Skills；
