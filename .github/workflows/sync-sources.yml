@@ -1,0 +1,42 @@
+name: Sync upstream sources
+
+on:
+  schedule:
+    - cron: '17 3 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Refresh source locks
+        id: locks
+        run: python scripts/update_sources.py || test $? -eq 2
+      - name: Copy locked redistributable sources
+        if: steps.locks.outcome == 'success'
+        run: python scripts/sync_sources.py --remote
+      - name: Validate manifests and Skills
+        run: python scripts/validate_catalog.py
+      - name: Bump affected plugin versions
+        run: |
+          changed="$(git diff --name-only)"
+          plugins=""
+          for plugin in research-toolkit writing-toolkit codex-utility-toolkit; do
+            if echo "$changed" | grep -q "^plugins/$plugin/"; then plugins="$plugins $plugin"; fi
+          done
+          test -z "$plugins" || python scripts/bump_versions.py $plugins
+      - name: Commit validated changes
+        run: |
+          git diff --quiet && exit 0
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add sources.json plugins
+          git commit -m 'chore: sync upstream skill sources'
+          git push

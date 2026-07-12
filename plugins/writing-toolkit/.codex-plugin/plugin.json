@@ -1,0 +1,21 @@
+{
+  "name": "writing-toolkit",
+  "version": "0.1.0",
+  "description": "Chinese and English prose editing skills with natural-language style checks.",
+  "author": {
+    "name": "research-toolkit maintainers"
+  },
+  "skills": "./skills/",
+  "interface": {
+    "displayName": "Writing Toolkit",
+    "shortDescription": "Natural Chinese and English prose editing.",
+    "longDescription": "Contains MIT-licensed editing skills for removing repetitive or artificial wording while preserving meaning.",
+    "developerName": "research-toolkit maintainers",
+    "category": "Writing",
+    "capabilities": ["Write"],
+    "defaultPrompt": [
+      "Make this text sound more natural without changing facts.",
+      "Identify repetitive AI-style wording in this draft."
+    ]
+  }
+}

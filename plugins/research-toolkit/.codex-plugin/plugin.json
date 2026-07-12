@@ -1,0 +1,23 @@
+{
+  "name": "research-toolkit",
+  "version": "0.1.0",
+  "description": "Reproducible research-writing, citation, figure, and ITASCA simulation tools.",
+  "author": {
+    "name": "research-toolkit maintainers"
+  },
+  "skills": "./skills/",
+  "interface": {
+    "displayName": "Research Toolkit",
+    "shortDescription": "Academic writing, citations, figures, and ITASCA MCP.",
+    "longDescription": "Contains redistributable SciPilot skills and an optional MIT-licensed ITASCA MCP configuration.",
+    "developerName": "research-toolkit maintainers",
+    "category": "Research",
+    "capabilities": ["Write", "Analyze"],
+    "defaultPrompt": [
+      "Help me plan a citation-backed research section.",
+      "Recommend and create a publication-ready figure.",
+      "Help me connect to an ITASCA simulation session."
+    ]
+  },
+  "mcpServers": "./.mcp.json"
+}
