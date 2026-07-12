@@ -2,6 +2,10 @@
 
 这是一个可直接安装到 Codex 的私有 GitHub Marketplace，用于统一分发、锁定版本并自动更新科研、写作和通用工具 Skills。仓库中的第三方 Skill 均保留原始目录结构、脚本、参考资料、资源文件及许可证。
 
+## 本仓库许可证
+
+本仓库新增的包装脚本、Marketplace 清单、README 和维护代码采用 MIT License，见 `LICENSE`。第三方 Skills 不因本仓库添加 MIT License 而改变授权方式；它们仍分别适用各自上游仓库的许可证和随包保留的许可证文件。SciPilot Skills 的上游作者主页为 `https://github.com/Haojae`，自动更新仍使用其具体 Skill 仓库地址。
+
 ## 插件与 Skills
 
 ### research-toolkit
@@ -119,7 +123,7 @@ Academic Research、Nature、agent-skills 和 taste-skill 都可能是 monorepo�
 - `Imbad0202/academic-research-skills-codex`：CC-BY-NC-4.0；
 - `Yuan1z0825/nature-skills`：Apache-2.0；
 - `Misaka-Mikoto-Tech/agent-skills`：MIT；
-- SciPilot Skills：MIT；
+- SciPilot Skills（`https://github.com/Haojae`）：MIT；
 - `Leonxlnx/taste-skill`：MIT；
 - `itasca-mcp`：MIT。
 

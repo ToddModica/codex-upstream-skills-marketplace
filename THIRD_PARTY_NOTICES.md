@@ -7,9 +7,9 @@
 | Academic Research Skills | https://github.com/Imbad0202/academic-research-skills | CC-BY-NC-4.0 | research-toolkit |
 | Academic Research Skills Codex | https://github.com/Imbad0202/academic-research-skills-codex | CC-BY-NC-4.0 | research-toolkit |
 | Nature Skills | https://github.com/Yuan1z0825/nature-skills | Apache-2.0 | research-toolkit |
-| SciPilot Cite Skill | https://github.com/Haojae/scipilot-cite-skill | MIT | research-toolkit |
-| SciPilot Figure Skill | https://github.com/Haojae/scipilot-figure-skill | MIT | research-toolkit |
-| SciPilot Writing Skill | https://github.com/Haojae/scipilot-writing-skill | MIT | research-toolkit |
+| SciPilot Cite Skill | https://github.com/Haojae | MIT | research-toolkit |
+| SciPilot Figure Skill | https://github.com/Haojae | MIT | research-toolkit |
+| SciPilot Writing Skill | https://github.com/Haojae | MIT | research-toolkit |
 | itasca-mcp | https://github.com/yusong652/itasca-mcp | MIT | research-toolkit |
 | agent-skills | https://github.com/Misaka-Mikoto-Tech/agent-skills | MIT | codex-utility-toolkit |
 | humanizer | https://github.com/blader/humanizer | MIT | writing-toolkit |
@@ -21,3 +21,5 @@
 由 Codex 本地发行环境提供并带有 Apache-2.0 许可证的 `doc`、`pdf`、`imagegen`、`openai-docs`、`skill-creator` 和 `skill-installer`，其许可证文件保留在各自 Skill 目录中。
 
 `ai-flavor-remover` 当前上游仓库未提供许可证文件，本仓库只在 `sources.json` 中记录来源，不复制其内容。
+
+说明：`sources.json` 中的 SciPilot 条目仍保留具体 Skill 仓库地址，用于 GitHub Actions 自动同步和 commit SHA 锁定；本声明中的上游地址按作者主页统一标注为 `https://github.com/Haojae`。
