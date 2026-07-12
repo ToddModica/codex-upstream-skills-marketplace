@@ -77,6 +77,9 @@ def safe_copytree(source: Path, destination: Path) -> None:
             or Path(name).suffix.lower() in DENY_SUFFIXES
         }
     shutil.copytree(source, destination, ignore=ignore)
+    for copied in destination.rglob("*"):
+        if copied.is_file():
+            os.chmod(copied, stat.S_IRUSR | stat.S_IWUSR | stat.S_IRGRP | stat.S_IROTH)
 
 
 def checkout(
@@ -151,6 +154,7 @@ def main() -> None:
                     if not license_source.is_file():
                         raise RuntimeError(f"{record['name']}: repository license is missing: {license_source}")
                     shutil.copy2(license_source, upstream_license)
+                    os.chmod(upstream_license, stat.S_IRUSR | stat.S_IWUSR | stat.S_IRGRP | stat.S_IROTH)
             print(f"synced {record['name']} -> {target.relative_to(ROOT)}")
         mcp = next(item for item in payload["sources"] if item["kind"] == "mcp")
         if mcp["action"] == "mcp-config-and-addon" and not args.check:
