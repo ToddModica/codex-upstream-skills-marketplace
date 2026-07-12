@@ -96,6 +96,7 @@ def checkout(
         return cache[key]
     directory = cache_root / f"repo-{len(cache) + 1}"
     subprocess.run(["git", "clone", "--no-checkout", str(upstream), str(directory)], check=True)
+    subprocess.run(["git", "-C", str(directory), "config", "core.longpaths", "true"], check=True)
     subprocess.run(["git", "-C", str(directory), "checkout", "--detach", str(sha)], check=True)
     materialize_git_symlinks(directory, str(sha))
     cache[key] = directory

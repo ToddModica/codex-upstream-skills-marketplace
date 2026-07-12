@@ -12,6 +12,11 @@ from pathlib import Path
 USER_EXCLUDED = {"agently-mail", "agents", "commands", "shared", "netease-uu-booster"}
 INCLUDED = {
     "research-toolkit": {
+        "academic-paper",
+        "academic-paper-reviewer",
+        "academic-pipeline",
+        "academic-research-suite",
+        "deep-research",
         "nature-academic-search",
         "nature-citation",
         "nature-data",
@@ -25,9 +30,10 @@ INCLUDED = {
         "scipilot-figure-skill",
         "scipilot-writing-skill",
     },
-    "writing-toolkit": {"humanizer", "humanizer-zh", "shuorenhua", "stop-slop"},
+    "writing-toolkit": {"ai-flavor-remover", "humanizer", "humanizer-zh", "shuorenhua", "stop-slop"},
     "codex-utility-toolkit": {
         "bilibili-page-reader",
+        "design-taste-frontend",
         "doc",
         "imagegen",
         "openai-docs",
@@ -48,6 +54,24 @@ MONOREPO_RULES = {
         "license": "MIT",
         "license_file": "LICENSE",
         "skill_prefix": "skills",
+    },
+    "https://github.com/imbad0202/academic-research-skills": {
+        "license": "CC-BY-NC-4.0",
+        "license_file": "LICENSE",
+        "skill_prefix": ".",
+    },
+    "https://github.com/imbad0202/academic-research-skills-codex": {
+        "license": "CC-BY-NC-4.0",
+        "license_file": "LICENSE",
+        "skill_prefix": "skills",
+    },
+    "https://github.com/leonxlnx/taste-skill": {
+        "license": "MIT",
+        "license_file": "LICENSE",
+        "skill_prefix": "skills",
+        "subpaths": {
+            "design-taste-frontend": "skills/taste-skill",
+        },
     },
 }
 
@@ -76,6 +100,8 @@ def license_id(directory: Path) -> tuple[str, str | None]:
         return "Apache-2.0", license_file.name
     if "mit license" in text:
         return "MIT", license_file.name
+    if "attribution-noncommercial 4.0 international" in text or "cc by-nc 4.0" in text:
+        return "CC-BY-NC-4.0", license_file.name
     return "CUSTOM", license_file.name
 
 
@@ -131,14 +157,18 @@ def main() -> None:
         upstream_subpath = None
         monorepo = MONOREPO_RULES.get(normalized_remote(origin))
         if monorepo:
-            upstream_subpath = git(source_dir, "config", "--get", "skill.upstreamPrefix") or f"{monorepo['skill_prefix']}/{name}"
+            subpaths = monorepo.get("subpaths", {})
+            upstream_subpath = git(source_dir, "config", "--get", "skill.upstreamPrefix") or subpaths.get(name)
+            if not upstream_subpath:
+                prefix = str(monorepo["skill_prefix"])
+                upstream_subpath = name if prefix in {"", "."} else f"{prefix}/{name}"
             if not license_file:
                 license_name = str(monorepo["license"])
                 license_file = str(monorepo["license_file"])
                 license_scope = "repository-root"
         explicitly_excluded = relative_parts[0] in USER_EXCLUDED
         plugin = plugin_for(name)
-        allowed = license_name in {"MIT", "Apache-2.0"}
+        allowed = license_name in {"MIT", "Apache-2.0", "CC-BY-NC-4.0"}
         action = "copy" if plugin and allowed and not explicitly_excluded else "record-only"
         reason = None
         if explicitly_excluded:

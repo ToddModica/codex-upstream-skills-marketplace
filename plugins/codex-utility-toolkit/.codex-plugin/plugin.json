@@ -1,18 +1,21 @@
 {
   "name": "codex-utility-toolkit",
-  "version": "0.2.0",
-  "description": "Document, PDF, image, Bilibili, PowerShell, and Codex skill-development utilities.",
+  "version": "0.2.1",
+  "description": "Document, PDF, image, Bilibili, PowerShell, frontend design, and Codex skill-development utilities.",
   "author": {
     "name": "research-toolkit maintainers"
   },
   "skills": "./skills/",
   "interface": {
     "displayName": "Codex Utility Toolkit",
-    "shortDescription": "Documents, media reading, PowerShell, and Skill utilities.",
-    "longDescription": "Contains document, PDF, image, Bilibili reading, safe PowerShell, and Codex Skill-development utilities.",
+    "shortDescription": "Documents, media reading, PowerShell, frontend design, and Skill utilities.",
+    "longDescription": "Contains document, PDF, image, Bilibili reading, safe PowerShell, frontend design taste checks, and Codex Skill-development utilities.",
     "developerName": "research-toolkit maintainers",
     "category": "Productivity",
-    "capabilities": ["Write", "Analyze"],
+    "capabilities": [
+      "Write",
+      "Analyze"
+    ],
     "defaultPrompt": [
       "Help me create a reusable Codex Skill.",
       "Help me inspect and improve this PDF workflow."

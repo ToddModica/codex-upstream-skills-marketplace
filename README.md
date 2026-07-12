@@ -8,6 +8,7 @@
 
 科研检索、论文写作、引用、数据作图和 ITASCA 数值模拟工具：
 
+- Academic Research 系列：`deep-research`、`academic-paper`、`academic-paper-reviewer`、`academic-pipeline`、`academic-research-suite`
 - Nature 系列：`nature-academic-search`、`nature-citation`、`nature-data`、`nature-figure`、`nature-paper2ppt`、`nature-polishing`、`nature-reader`、`nature-response`、`nature-writing`
 - SciPilot 系列：`scipilot-cite-skill`、`scipilot-figure-skill`、`scipilot-writing-skill`
 - MCP：`itasca-mcp`，通过 `uvx itasca-mcp` 启动；ITASCA 端桥接文件位于 `plugins/research-toolkit/assets/itasca-mcp-addon.py`
@@ -23,7 +24,7 @@
 
 ### codex-utility-toolkit
 
-文档、媒体读取、PowerShell 和 Codex Skill 开发工具：
+文档、媒体读取、PowerShell、前端设计和 Codex Skill 开发工具：
 
 - `bilibili-page-reader`
 - `doc`
@@ -31,6 +32,7 @@
 - `imagegen`
 - `openai-docs`
 - `powershell-safe-invocation`
+- `design-taste-frontend`
 - `skill-creator`
 - `skill-installer`
 
@@ -70,13 +72,13 @@ pwsh -NoLogo -NoProfile -File .\scripts\Update-Marketplace.ps1
 - 每天北京时间 11:17 自动检查上游；
 - 支持在 GitHub Actions 页面手动运行；
 - 按 `sources.json` 锁定的仓库和 Skill 子目录同步内容；
-- 同步 Nature、SciPilot、Bilibili 阅读器、PowerShell 安全调用及其他已打包 Skills；
+- 同步 Academic Research、Nature、SciPilot、Bilibili 阅读器、PowerShell 安全调用、Taste 前端设计及其他已打包 Skills；
 - 自动更新来源 commit SHA；
 - 校验 Marketplace、插件清单、全部 `SKILL.md`、MCP 配置和上游许可证；
 - 仅在内容发生变化时提升受影响插件的补丁版本并提交；
 - 任一校验失败时不提交更新。
 
-Nature 和 agent-skills 都是 monorepo。同步脚本只复制 `sources.json` 指定的 `upstream_subpath`，不会把整个上游仓库错误地复制到单个 Skill 目录。
+Academic Research、Nature、agent-skills 和 taste-skill 都可能是 monorepo。同步脚本只复制 `sources.json` 指定的 `upstream_subpath`，不会把整个上游仓库错误地复制到单个 Skill 目录。
 
 ## 校验兼容性说明
 
@@ -95,9 +97,12 @@ Nature 和 agent-skills 都是 monorepo。同步脚本只复制 `sources.json` �
 
 主要第三方许可证：
 
+- `Imbad0202/academic-research-skills`：CC-BY-NC-4.0；
+- `Imbad0202/academic-research-skills-codex`：CC-BY-NC-4.0；
 - `Yuan1z0825/nature-skills`：Apache-2.0；
 - `Misaka-Mikoto-Tech/agent-skills`：MIT；
 - SciPilot Skills：MIT；
+- `Leonxlnx/taste-skill`：MIT；
 - `itasca-mcp`：MIT。
 
 对于许可证位于 monorepo 根目录的 Skill，同步时会在对应 Skill 目录写入 `UPSTREAM_LICENSE`。未确认允许再分发的 Skill 只保留来源记录，不复制到插件中。详细归属见 `THIRD_PARTY_NOTICES.md`。
@@ -139,4 +144,4 @@ python .\scripts\sync_sources.py --remote
 python .\scripts\validate_catalog.py
 ```
 
-用户明确排除的 `agently-mail` 和 `netease-uu-booster` 仅保留为来源记录，不会安装到插件中；`agents`、`commands`、`shared` 不包含独立 `SKILL.md`，因此不作为 Skill 封装。
+用户明确排除的 `agently-mail` 和 `netease-uu-booster` 仅保留为来源记录，不会安装到插件中；`agents`、`commands`、`shared` 不包含独立 `SKILL.md`，因此不作为 Skill 封装。`ai-flavor-remover` 当前上游仓库未提供许可证文件，因此只记录来源，不直接复制进插件。

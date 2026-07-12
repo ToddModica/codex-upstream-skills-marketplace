@@ -12,6 +12,11 @@ ROOT = Path(__file__).resolve().parents[1]
 PLUGINS = ("research-toolkit", "writing-toolkit", "codex-utility-toolkit")
 REQUIRED_SKILLS = {
     "research-toolkit": {
+        "academic-paper",
+        "academic-paper-reviewer",
+        "academic-pipeline",
+        "academic-research-suite",
+        "deep-research",
         "nature-academic-search",
         "nature-citation",
         "nature-data",
@@ -28,6 +33,7 @@ REQUIRED_SKILLS = {
     "writing-toolkit": {"humanizer", "humanizer-zh", "shuorenhua", "stop-slop"},
     "codex-utility-toolkit": {
         "bilibili-page-reader",
+        "design-taste-frontend",
         "doc",
         "imagegen",
         "openai-docs",
@@ -39,7 +45,7 @@ REQUIRED_SKILLS = {
 }
 SEMVER = re.compile(r"^\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?(?:\+[0-9A-Za-z.-]+)?$")
 SHA = re.compile(r"^[0-9a-f]{40}$")
-ALLOWED_LICENSES = {"MIT", "Apache-2.0"}
+ALLOWED_LICENSES = {"MIT", "Apache-2.0", "CC-BY-NC-4.0"}
 FORBIDDEN_NAMES = {".env", "credentials.json", "id_rsa", "id_ed25519"}
 
 
