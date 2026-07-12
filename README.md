@@ -38,32 +38,50 @@
 
 ## Windows 安装
 
-需要先安装 Codex CLI。克隆本仓库后，在 PowerShell 7 中运行：
+需要先安装 Codex CLI 和 Git for Windows。初始化脚本默认把 Marketplace 注册为 Git 源 `ToddModica/codex-skills-github-marketplace@main`，并会启用 Windows Git 长路径支持：
 
 ```powershell
 pwsh -NoLogo -NoProfile -File .\scripts\Initialize-Marketplace.ps1
 ```
 
-脚本会检查 Codex CLI、注册 `research-toolkit-marketplace`，并安装三个插件。安装完成后请新建一个 Codex 任务，使新 Skills 和 MCP 工具生效。
+脚本会检查 Codex CLI 和 Git、注册 `research-toolkit-marketplace`，并安装三个插件。若 Git Marketplace 注册失败，脚本会回退到当前本地仓库路径，避免 Codex 设置中的“插件 / 市场”来源丢失。安装完成后请新建一个 Codex 任务，使新 Skills 和 MCP 工具生效。
 
 也可以手动安装：
 
 ```powershell
-codex plugin marketplace add .
+git config --global core.longpaths true
+codex plugin marketplace add ToddModica/codex-skills-github-marketplace --ref main
 codex plugin add research-toolkit@research-toolkit-marketplace
 codex plugin add writing-toolkit@research-toolkit-marketplace
 codex plugin add codex-utility-toolkit@research-toolkit-marketplace
 ```
 
+如果是在一台新电脑上，不需要先复制本机的 Skills 目录。只要该电脑已经登录到有权限访问本私有仓库的 GitHub 账号，并安装了 Codex CLI 与 Git for Windows，就可以直接把 GitHub 仓库地址交给 Codex 注册为 Git Marketplace：
+
+```powershell
+codex plugin marketplace add https://github.com/ToddModica/codex-skills-github-marketplace.git --ref main
+codex plugin add research-toolkit@research-toolkit-marketplace
+codex plugin add writing-toolkit@research-toolkit-marketplace
+codex plugin add codex-utility-toolkit@research-toolkit-marketplace
+```
+
+如果已经克隆了本仓库，也可以用初始化脚本显式指定 GitHub 地址：
+
+```powershell
+pwsh -NoLogo -NoProfile -File .\scripts\Initialize-Marketplace.ps1 `
+  -MarketplaceSource https://github.com/ToddModica/codex-skills-github-marketplace.git `
+  -MarketplaceRef main
+```
+
 ## 更新
 
-拉取仓库更新后运行：
+刷新 Git Marketplace 快照并重新安装插件：
 
 ```powershell
 pwsh -NoLogo -NoProfile -File .\scripts\Update-Marketplace.ps1
 ```
 
-更新完成后同样需要新建 Codex 任务。
+更新脚本会执行 Git Marketplace 注册/刷新、校验 Marketplace 仍可见，并重新安装三个插件。更新完成后同样需要新建 Codex 任务。
 
 ## 自动更新
 
@@ -124,7 +142,7 @@ pwsh -NoLogo -NoProfile -File .\scripts\Update-Marketplace.ps1
 
 ## 多设备部署
 
-在其他设备克隆本私有仓库，首次运行初始化脚本，以后执行 `git pull --ff-only` 和更新脚本即可。不要向仓库提交 Token、Cookie、`.env`、私钥或本机 Codex 配置。
+在其他设备上，只要该设备能访问本私有 GitHub 仓库，就可以直接使用仓库地址完成 Git Marketplace 注册和插件安装；不需要提前同步 `D:\OneDrive\cc-switch\.cc-switch\skills`。保留本地克隆主要用于维护、回退或离线兜底。不要向仓库提交 Token、Cookie、`.env`、私钥或本机 Codex 配置。
 
 ## 维护者命令
 
