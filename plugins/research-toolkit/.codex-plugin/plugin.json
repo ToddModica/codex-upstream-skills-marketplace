@@ -1,6 +1,6 @@
 {
   "name": "research-toolkit",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Reproducible research-writing, citation, figure, and ITASCA simulation tools.",
   "author": {
     "name": "research-toolkit maintainers"
@@ -12,7 +12,10 @@
     "longDescription": "Contains redistributable SciPilot skills and an optional MIT-licensed ITASCA MCP configuration.",
     "developerName": "research-toolkit maintainers",
     "category": "Research",
-    "capabilities": ["Write", "Analyze"],
+    "capabilities": [
+      "Write",
+      "Analyze"
+    ],
     "defaultPrompt": [
       "Help me plan a citation-backed research section.",
       "Recommend and create a publication-ready figure.",
