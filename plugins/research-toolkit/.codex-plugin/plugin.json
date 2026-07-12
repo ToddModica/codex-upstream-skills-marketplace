@@ -1,15 +1,15 @@
 {
   "name": "research-toolkit",
-  "version": "0.1.1",
-  "description": "Reproducible research-writing, citation, figure, and ITASCA simulation tools.",
+  "version": "0.2.0",
+  "description": "Nature-oriented research, writing, citation, figure, and ITASCA simulation tools.",
   "author": {
     "name": "research-toolkit maintainers"
   },
   "skills": "./skills/",
   "interface": {
     "displayName": "Research Toolkit",
-    "shortDescription": "Academic writing, citations, figures, and ITASCA MCP.",
-    "longDescription": "Contains redistributable SciPilot skills and an optional MIT-licensed ITASCA MCP configuration.",
+    "shortDescription": "Nature, SciPilot, citations, figures, and ITASCA MCP.",
+    "longDescription": "Contains Apache-2.0 Nature Skills, MIT SciPilot Skills, and an optional MIT-licensed ITASCA MCP configuration.",
     "developerName": "research-toolkit maintainers",
     "category": "Research",
     "capabilities": [

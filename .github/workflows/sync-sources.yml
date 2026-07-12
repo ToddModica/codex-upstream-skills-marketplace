@@ -8,6 +8,10 @@ on:
 permissions:
   contents: write
 
+concurrency:
+  group: sync-upstream-sources-${{ github.ref }}
+  cancel-in-progress: false
+
 jobs:
   sync:
     runs-on: ubuntu-latest
@@ -22,8 +26,6 @@ jobs:
       - name: Copy locked redistributable sources
         if: steps.locks.outcome == 'success'
         run: python scripts/sync_sources.py --remote
-      - name: Validate manifests and Skills
-        run: python scripts/validate_catalog.py
       - name: Bump affected plugin versions
         run: |
           changed="$(git diff --name-only)"
@@ -32,6 +34,8 @@ jobs:
             if echo "$changed" | grep -q "^plugins/$plugin/"; then plugins="$plugins $plugin"; fi
           done
           test -z "$plugins" || python scripts/bump_versions.py $plugins
+      - name: Validate final manifests and Skills
+        run: python scripts/validate_catalog.py
       - name: Commit validated changes
         run: |
           git diff --quiet && exit 0

@@ -11,9 +11,13 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 
 
-def remote_head(url: str) -> str | None:
-    result = subprocess.run(["git", "ls-remote", url, "HEAD"], capture_output=True, text=True, check=True)
-    return result.stdout.split()[0] if result.stdout.split() else None
+def remote_branch_head(url: str, branch: str) -> str:
+    ref = f"refs/heads/{branch}"
+    result = subprocess.run(["git", "ls-remote", url, ref], capture_output=True, text=True, check=True)
+    fields = result.stdout.split()
+    if not fields:
+        raise RuntimeError(f"Remote branch was not found: {url} {ref}")
+    return fields[0]
 
 
 def main() -> None:
@@ -22,11 +26,20 @@ def main() -> None:
     args = parser.parse_args()
     payload = json.loads(args.sources.read_text(encoding="utf-8"))
     changed = False
+    heads: dict[tuple[str, str], str] = {}
     for item in payload["sources"]:
+        if item.get("action") not in {"copy", "mcp-config-and-addon"}:
+            continue
         url = item.get("upstream")
         if not url:
             continue
-        sha = remote_head(str(url))
+        branch = item.get("branch")
+        if not branch:
+            raise RuntimeError(f"{item['name']}: upstream branch is missing")
+        key = (str(url), str(branch))
+        if key not in heads:
+            heads[key] = remote_branch_head(*key)
+        sha = heads[key]
         if sha and sha != item.get("commit_sha"):
             print(f"updated lock: {item['name']} {item.get('commit_sha')} -> {sha}")
             item["commit_sha"] = sha

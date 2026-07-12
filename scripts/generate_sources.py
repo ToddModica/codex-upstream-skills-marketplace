@@ -11,9 +11,44 @@ from pathlib import Path
 
 USER_EXCLUDED = {"agently-mail", "agents", "commands", "shared", "netease-uu-booster"}
 INCLUDED = {
-    "research-toolkit": {"scipilot-cite-skill", "scipilot-figure-skill", "scipilot-writing-skill"},
+    "research-toolkit": {
+        "nature-academic-search",
+        "nature-citation",
+        "nature-data",
+        "nature-figure",
+        "nature-paper2ppt",
+        "nature-polishing",
+        "nature-reader",
+        "nature-response",
+        "nature-writing",
+        "scipilot-cite-skill",
+        "scipilot-figure-skill",
+        "scipilot-writing-skill",
+    },
     "writing-toolkit": {"humanizer", "humanizer-zh", "shuorenhua", "stop-slop"},
-    "codex-utility-toolkit": {"doc", "imagegen", "openai-docs", "pdf", "skill-creator", "skill-installer"},
+    "codex-utility-toolkit": {
+        "bilibili-page-reader",
+        "doc",
+        "imagegen",
+        "openai-docs",
+        "pdf",
+        "powershell-safe-invocation",
+        "skill-creator",
+        "skill-installer",
+    },
+}
+
+MONOREPO_RULES = {
+    "https://github.com/yuan1z0825/nature-skills": {
+        "license": "Apache-2.0",
+        "license_file": "LICENSE",
+        "skill_prefix": "skills",
+    },
+    "https://github.com/misaka-mikoto-tech/agent-skills": {
+        "license": "MIT",
+        "license_file": "LICENSE",
+        "skill_prefix": "skills",
+    },
 }
 
 
@@ -51,6 +86,12 @@ def plugin_for(name: str) -> str | None:
     return None
 
 
+def normalized_remote(url: str | None) -> str | None:
+    if not url:
+        return None
+    return url.removesuffix(".git").rstrip("/").lower()
+
+
 def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--output", type=Path, default=Path("sources.json"))
@@ -71,6 +112,10 @@ def main() -> None:
         raise SystemExit(f"Skill root does not exist: {source_root}")
     if not mcp_root.is_dir():
         raise SystemExit(f"ITASCA MCP root does not exist: {mcp_root}")
+    previous: dict[str, dict[str, object]] = {}
+    if args.output.is_file():
+        old_payload = json.loads(args.output.read_text(encoding="utf-8"))
+        previous = {item["name"]: item for item in old_payload.get("sources", [])}
     records: list[dict[str, object]] = []
     for skill_md in sorted(source_root.rglob("SKILL.md")):
         relative_parts = skill_md.relative_to(source_root).parts
@@ -78,7 +123,19 @@ def main() -> None:
         if not name:
             continue
         source_dir = skill_md.parent
+        origin = git(source_dir, "remote", "get-url", "origin")
+        local_snapshot_sha = git(source_dir, "rev-parse", "HEAD")
+        branch = git(source_dir, "config", "--get", "skill.upstreamBranch") or git(source_dir, "branch", "--show-current")
         license_name, license_file = license_id(source_dir)
+        license_scope = "skill-root" if license_file else None
+        upstream_subpath = None
+        monorepo = MONOREPO_RULES.get(normalized_remote(origin))
+        if monorepo:
+            upstream_subpath = git(source_dir, "config", "--get", "skill.upstreamPrefix") or f"{monorepo['skill_prefix']}/{name}"
+            if not license_file:
+                license_name = str(monorepo["license"])
+                license_file = str(monorepo["license_file"])
+                license_scope = "repository-root"
         explicitly_excluded = relative_parts[0] in USER_EXCLUDED
         plugin = plugin_for(name)
         allowed = license_name in {"MIT", "Apache-2.0"}
@@ -90,16 +147,22 @@ def main() -> None:
             reason = "No redistribution target: license not verified for this source." if not allowed else "Not selected for a plugin."
         elif not allowed:
             reason = "No redistributable license file found at the locked source revision."
+        old = previous.get(name, {})
+        old_origin = normalized_remote(str(old.get("upstream"))) if old.get("upstream") else None
+        commit_sha = old.get("commit_sha") if monorepo and old_origin == normalized_remote(origin) else local_snapshot_sha
         records.append({
             "kind": "skill",
             "name": name,
-            "upstream": git(source_dir, "remote", "get-url", "origin"),
-            "branch": git(source_dir, "branch", "--show-current"),
-            "commit_sha": git(source_dir, "rev-parse", "HEAD"),
+            "upstream": origin,
+            "branch": branch,
+            "commit_sha": commit_sha,
+            "local_snapshot_sha": local_snapshot_sha,
+            "upstream_subpath": upstream_subpath,
             "local_relative": source_dir.relative_to(source_root).as_posix(),
             "target": f"plugins/{plugin}/skills/{name}" if action == "copy" else None,
             "license": license_name,
             "license_file": license_file,
+            "license_scope": license_scope,
             "action": action,
             "reason": reason,
         })
