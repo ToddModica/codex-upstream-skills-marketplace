@@ -11,6 +11,7 @@ CODEX_ROOT = Path(__file__).resolve().parents[1]
 SUITE_ROOT = CODEX_ROOT.parent
 PLANNER_PATH = CODEX_ROOT / "scripts" / "ars_codex_full_runtime.py"
 GATES_PATH = CODEX_ROOT / "scripts" / "ars_codex_quality_gates.py"
+MODEL_TIERING_CHECK = SUITE_ROOT / "ars" / "scripts" / "check_model_tiering.py"
 
 
 def _load_planner():
@@ -92,6 +93,40 @@ def test_ars_rebuttal_audit_alias_routes_to_academic_paper() -> None:
     assert plan["command_recipe"] == "ars/commands/ars-rebuttal-audit.md"
 
 
+def test_korean_revision_routes_to_academic_paper_not_reviewer() -> None:
+    planner = _load_planner()
+    plan = planner.plan_request(
+        "이 논문을 수정해줘. 심사 의견은 아직 없고, 초고를 더 다듬고 싶어.",
+        env={},
+    )
+    assert plan["workflow"] == "academic-paper"
+    assert plan["mode"] == "revision"
+
+
+def test_korean_review_routes_to_reviewer_not_revision() -> None:
+    planner = _load_planner()
+    plan = planner.plan_request("이 논문을 심사해줘.", env={})
+    assert plan["workflow"] == "academic-paper-reviewer"
+    assert plan["mode"] == "full"
+
+
+def test_model_tiering_is_surfaced_without_forcing_a_codex_model() -> None:
+    planner = _load_planner()
+    inline = planner.plan_request("ars-plan Research question: Why?", env={"ARS_MODEL_TIERING": "economy"})
+    assert inline["profile"]["model_tiering_status"] == "inline_noop"
+
+    delegated = planner.plan_request(
+        "ars-plan Research question: Why?",
+        env={
+            "ARS_CODEX_FULL_RUNTIME": "1",
+            "ARS_CODEX_AGENT_TEAM": "1",
+            "ARS_MODEL_TIERING": "quality-boost",
+        },
+    )
+    assert delegated["profile"]["model_tiering_status"] == "advisory_requires_runtime_model_override"
+    assert delegated["profile"]["model_tiering_requested"] == "quality-boost"
+
+
 def test_ars_full_starts_pipeline_and_stops_at_dashboard_checkpoint() -> None:
     planner = _load_planner()
     plan = planner.plan_request(
@@ -147,3 +182,14 @@ def test_quality_gates_all_pass() -> None:
     )
     payload = json.loads(result.stdout)
     assert all(item["ok"] for item in payload.values()), payload
+
+
+def test_model_tiering_lint_accepts_separately_vendored_experiment_agents() -> None:
+    result = subprocess.run(
+        [sys.executable, str(MODEL_TIERING_CHECK)],
+        cwd=SUITE_ROOT / "ars",
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+    assert "39 agents classified" in result.stdout

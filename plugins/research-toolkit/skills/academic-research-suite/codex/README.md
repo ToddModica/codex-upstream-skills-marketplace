@@ -59,6 +59,8 @@ Instead it provides an explicit Codex orchestration contract:
 - pipeline orchestration stops at requested checkpoints;
 - Codex model routing uses the active model while preserving upstream
   `opus`/`sonnet` hints as metadata;
+- ARS v3.16 model tiering is surfaced as advisory metadata; it is applied only
+  when a Codex runtime provides explicit per-dispatch model selection;
 - inline mode remains available and is the default.
 
 ## Verification

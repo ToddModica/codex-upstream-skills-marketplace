@@ -70,6 +70,31 @@ def check_manifest() -> list[str]:
     manifest = _json(FULL_RUNTIME_MANIFEST)
     messages = ["full-runtime manifest parses as JSON"]
 
+    package = _json(PACKAGE_MANIFEST)
+    adapter_version = package.get("adapter_version")
+    skill_match = re.search(
+        r'(?m)^\s+version:\s*"([^"]+)"\s*$',
+        (SUITE_ROOT / "SKILL.md").read_text(encoding="utf-8"),
+    )
+    _require(bool(skill_match), "root SKILL.md metadata version is missing")
+    _require(
+        skill_match.group(1) == adapter_version,
+        f"SKILL.md version {skill_match.group(1)!r} != adapter version {adapter_version!r}",
+    )
+    plugin_version = _json(PLUGIN_ROOT / ".codex-plugin" / "plugin.json").get("version")
+    _require(
+        plugin_version == adapter_version,
+        f"Desktop plugin version {plugin_version!r} != adapter version {adapter_version!r}",
+    )
+    repo_version_path = SUITE_ROOT.parents[1] / "VERSION"
+    if repo_version_path.is_file():
+        repo_version = repo_version_path.read_text(encoding="utf-8").strip()
+        _require(
+            repo_version == adapter_version,
+            f"repo VERSION {repo_version!r} != adapter version {adapter_version!r}",
+        )
+    messages.append(f"package version {adapter_version} is aligned across skill, manifest, plugin, and VERSION")
+
     for key, value in manifest["paths"].items():
         if key in {"adapter_root"}:
             continue
@@ -196,9 +221,37 @@ def check_desktop_plugin_bundle() -> list[str]:
         not symlinks,
         "Desktop plugin bundle must not contain symlinks: " + ", ".join(symlinks[:20]),
     )
+
+    ignored_names = {".DS_Store", "__pycache__"}
+
+    def materialized_files(root: Path) -> dict[str, Path]:
+        return {
+            path.relative_to(root).as_posix(): path
+            for path in root.rglob("*")
+            if path.is_file()
+            and not any(part in ignored_names for part in path.relative_to(root).parts)
+            and path.suffix != ".pyc"
+        }
+
+    if suite_entry.resolve() != SUITE_ROOT.resolve():
+        canonical = materialized_files(SUITE_ROOT)
+        bundled = materialized_files(suite_entry)
+        missing = sorted(canonical.keys() - bundled.keys())
+        extra = sorted(bundled.keys() - canonical.keys())
+        changed = sorted(
+            rel_path
+            for rel_path in canonical.keys() & bundled.keys()
+            if canonical[rel_path].read_bytes() != bundled[rel_path].read_bytes()
+        )
+        _require(
+            not (missing or extra or changed),
+            "Desktop plugin bundle differs from canonical skill: "
+            f"missing={missing[:10]}, extra={extra[:10]}, changed={changed[:10]}",
+        )
     return [
         "Desktop plugin bundle uses a materialized skills directory",
         "academic-research-suite is bundled without symlinks",
+        "Desktop plugin bundle is byte-identical to the canonical skill",
     ]
 
 

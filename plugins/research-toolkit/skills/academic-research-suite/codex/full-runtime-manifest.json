@@ -122,13 +122,15 @@
       "The synthesizer must build a finding matrix and preserve minority, dissenting, devil's advocate, and methodology findings unless explicitly resolved by severity and evidence."
     ],
     "minority_preservation": "Synthesis may prioritize by severity, but must not erase a reviewer-specific concern by majority vote alone.",
-    "model_mapping": "Claude model hints are advisory. Codex uses the active model unless an explicit user/runtime override exists."
+    "model_mapping": "Claude model hints are advisory. Codex uses the active model unless an explicit user/runtime override exists.",
+    "model_tiering": "ARS_MODEL_TIERING is surfaced as advisory metadata. Apply the upstream judgment/execution classification only when the runtime provides an explicit per-dispatch model override; otherwise announce a no-op and keep the active model."
   },
   "quality_gates": [
     {"id": "single_root_skill", "kind": "packaging", "runner": "manifest", "parity": "full"},
     {"id": "alias_coverage", "kind": "routing", "runner": "manifest", "parity": "near"},
     {"id": "vague_topic_socratic", "kind": "routing", "runner": "router", "parity": "near"},
     {"id": "phase_boundary", "kind": "routing", "runner": "upstream:ars/scripts/check_v3_9_2_phase_boundary.py", "parity": "near"},
+    {"id": "model_tiering_classification", "kind": "agent-team", "runner": "upstream:ars/scripts/check_model_tiering.py", "parity": "partial"},
     {"id": "passport_reset_contract", "kind": "material-passport", "runner": "upstream:ars/scripts/check_passport_reset_contract.py", "parity": "near"},
     {"id": "citation_claim_audit", "kind": "integrity", "runner": "upstream:ars/scripts/claim_audit_pipeline.py", "parity": "partial"},
     {"id": "temporal_integrity", "kind": "integrity", "runner": "upstream:ars/scripts/temporal_integrity_audit.py", "parity": "near"},
@@ -141,6 +143,7 @@
     "Codex agent-team spawning is opt-in and planner-driven; inline mode remains the default.",
     "Claude SessionStart and SubagentStop hooks are not installed automatically. The Codex hook pack is local, safe-by-default, and must be explicitly enabled.",
     "Claude model hints opus/sonnet are recorded as metadata; Codex cannot guarantee identical model routing.",
+    "ARS model tiering is classification-compatible but remains advisory unless the Codex runtime exposes explicit per-dispatch model selection.",
     "External cross-model reviewers require explicit API configuration and are not silently simulated."
   ]
 }
