@@ -28,8 +28,17 @@ from resource_paths import resolve_external_image_reference
 from .context import ConvertContext, ShapeResult
 from .theme_colors import color_node_xml
 from .theme_fonts import theme_font_tokens
+from .text_properties import (
+    drawingml_letter_spacing,
+    parse_project_font_style,
+    parse_project_font_weight,
+    parse_project_letter_spacing,
+    parse_project_text_anchor,
+    parse_project_text_decoration,
+)
 from .utils import (
-    SVG_NS, XLINK_NS, ANGLE_UNIT, FONT_PX_TO_HUNDREDTHS_PT, DASH_PRESETS,
+    SVG_NS, XLINK_NS, ANGLE_UNIT, FONT_PX_TO_HUNDREDTHS_PT,
+    PROJECT_IMAGE_ASPECT_RATIO_ANCHORS,
     px_to_emu, _f, _get_attr, parse_svg_length,
     svg_length_x, svg_length_y, svg_length_size,
     ctx_x, ctx_y, ctx_w, ctx_h,
@@ -38,7 +47,12 @@ from .utils import (
     resolve_url_id, get_effective_filter_id,
     parse_inline_style, parse_font_family, is_cjk_char, estimate_text_width,
     detect_text_lang, font_px_to_hpt, resolve_text_run_fonts,
-    matrix_multiply, parse_transform_matrix, transform_point, _xml_escape,
+    is_thick_circle_shorthand, parse_project_geometry_length,
+    parse_project_image_aspect_ratio,
+    parse_project_opacity,
+    parse_project_stroke_dasharray,
+    matrix_multiply, parse_transform_matrix, parse_transform_operations,
+    transform_point, _xml_escape,
 )
 from .styles import (
     build_solid_fill, build_gradient_fill,
@@ -46,7 +60,7 @@ from .styles import (
     get_element_opacity, get_fill_opacity, get_stroke_opacity,
 )
 from .paths import (
-    PathCommand, parse_svg_path, svg_path_to_absolute,
+    PathCommand, parse_svg_path, parse_svg_points, svg_path_to_absolute,
     normalize_path_commands, path_commands_to_drawingml,
 )
 
@@ -1020,27 +1034,11 @@ def _build_arc_ring_path(
 def _is_donut_circle(elem: ET.Element, ctx: ConvertContext) -> bool:
     """Detect if a circle uses stroke-dasharray to simulate an arc segment."""
     dasharray = _get_attr(elem, 'stroke-dasharray', ctx)
-    if not dasharray or dasharray == 'none':
-        return False
     stroke = _get_attr(elem, 'stroke', ctx)
-    if not stroke or stroke == 'none':
-        return False
-
+    fill = _get_attr(elem, 'fill', ctx)
     sw = svg_length_size(_get_attr(elem, 'stroke-width', ctx), ctx, 0)
     r = svg_length_size(elem.get('r'), ctx, 0)
-    if sw <= 0 or r <= 0:
-        return False
-
-    # Standard dash presets are not donut segments
-    if dasharray.strip() in DASH_PRESETS:
-        return False
-
-    # Thin strokes relative to radius are decorative dashed rings, not donut arcs.
-    # Real donut arcs need sw/r >= 0.15 (e.g. sw=40 on r=100 → 0.40).
-    if sw / r < 0.15:
-        return False
-
-    return True
+    return is_thick_circle_shorthand(dasharray, stroke, fill, sw, r)
 
 
 def convert_circle(elem: ET.Element, ctx: ConvertContext) -> ShapeResult | None:
@@ -1056,16 +1054,33 @@ def convert_circle(elem: ET.Element, ctx: ConvertContext) -> ShapeResult | None:
     # --- Donut-chart arc segment detection ---
     if preset_geom is None and _is_donut_circle(elem, ctx):
         dasharray = _get_attr(elem, 'stroke-dasharray', ctx)
-        dash_vals = re.split(r'[\s,]+', dasharray.strip())
-        dash_len = float(dash_vals[0]) if dash_vals else 0
-        dash_offset = svg_length_size(elem.get('stroke-dashoffset'), ctx, 0)
+        parsed_dasharray = parse_project_stroke_dasharray(
+            dasharray,
+            allow_zero_gap=True,
+        )
+        if parsed_dasharray is None:
+            raise ValueError('Thick-circle arc requires one dash/gap pair')
+        _preset, dash_values = parsed_dasharray
+        dash_len = dash_values[0]
+        raw_dash_offset = elem.get('stroke-dashoffset')
+        dash_offset = (
+            parse_project_geometry_length(
+                raw_dash_offset,
+                'stroke-dashoffset',
+            )
+            if raw_dash_offset is not None else 0.0
+        )
         stroke_width = svg_length_size(_get_attr(elem, 'stroke-width', ctx), ctx, 1)
 
         rotate_deg = 0.0
         transform = elem.get('transform', '')
-        r_match = re.search(r'rotate\(\s*([-\d.]+)', transform)
-        if r_match:
-            rotate_deg = float(r_match.group(1))
+        if transform:
+            operations = parse_transform_operations(transform)
+            if len(operations) != 1 or operations[0][0] != 'rotate':
+                raise ValueError(
+                    'Thick-circle arc transform must be one rotate operation'
+                )
+            rotate_deg = operations[0][1][0]
 
         geom, min_x, min_y, w_emu, h_emu = _build_arc_ring_path(
             ctx_x(cx_, ctx) / ctx.scale_x,
@@ -1442,22 +1457,10 @@ def convert_path(elem: ET.Element, ctx: ConvertContext) -> ShapeResult | None:
 # polygon / polyline
 # ---------------------------------------------------------------------------
 
-def _parse_points(points_str: str) -> list[tuple[float, float]]:
-    """Parse SVG points attribute into a list of (x, y) tuples."""
-    nums = re.findall(r'[-+]?(?:\d+\.?\d*|\.\d+)(?:[eE][-+]?\d+)?', points_str)
-    if len(nums) < 4:
-        return []
-    return [(float(nums[i]), float(nums[i + 1])) for i in range(0, len(nums) - 1, 2)]
-
-
 def convert_polygon(elem: ET.Element, ctx: ConvertContext) -> ShapeResult | None:
     """Convert SVG <polygon> to DrawingML custom geometry shape."""
     preset_geom = _build_preset_geom_from_meta(elem)
-    points = _parse_points(elem.get('points', ''))
-    if not points:
-        if preset_geom is not None:
-            raise ValueError('Preset-bearing <polygon> requires valid points')
-        return None
+    points = parse_svg_points(elem.get('points', ''), min_points=3)
 
     commands = [PathCommand('M', [points[0][0], points[0][1]])]
     for px_, py_ in points[1:]:
@@ -1526,11 +1529,7 @@ def convert_polygon(elem: ET.Element, ctx: ConvertContext) -> ShapeResult | None
 def convert_polyline(elem: ET.Element, ctx: ConvertContext) -> ShapeResult | None:
     """Convert SVG <polyline> to DrawingML custom geometry shape."""
     preset_geom = _build_preset_geom_from_meta(elem)
-    points = _parse_points(elem.get('points', ''))
-    if not points:
-        if preset_geom is not None:
-            raise ValueError('Preset-bearing <polyline> requires valid points')
-        return None
+    points = parse_svg_points(elem.get('points', ''), min_points=2)
 
     commands = [PathCommand('M', [points[0][0], points[0][1]])]
     for px_, py_ in points[1:]:
@@ -1672,38 +1671,12 @@ def _preserves_space(elem: ET.Element) -> bool:
     return xml_space == 'preserve'
 
 
-def _parse_letter_spacing_px(
-    value: str | None,
-    *,
-    font_size: float,
-    scale_x: float = 1.0,
-) -> float:
-    """Parse an SVG letter-spacing value into scaled pixels."""
-    if not value:
-        return 0.0
-    raw = value.strip().lower()
-    if raw in {'normal', 'inherit', 'initial', 'unset'}:
-        return 0.0
-
-    match = re.fullmatch(r'([-+]?(?:\d*\.\d+|\d+\.?))(px|pt|em)?', raw)
-    if not match:
-        return 0.0
-
-    amount = float(match.group(1))
-    unit = match.group(2) or 'px'
-    if unit == 'em':
-        return amount * font_size
-    if unit == 'pt':
-        return amount * 4.0 / 3.0 * scale_x
-    return amount * scale_x
-
-
 def _letter_spacing_to_drawingml_spc(letter_spacing_px: float) -> str:
     """Convert SVG px letter spacing into DrawingML rPr@spc."""
-    if abs(letter_spacing_px) < 1e-9:
+    spacing = drawingml_letter_spacing(letter_spacing_px)
+    if spacing == 0:
         return ''
-    spc_val = round(letter_spacing_px * FONT_PX_TO_HUNDREDTHS_PT)
-    return f' spc="{spc_val}"'
+    return f' spc="{spacing}"'
 
 
 def _is_serif_run(run: dict[str, Any]) -> bool:
@@ -1933,15 +1906,13 @@ def _text_opacity_ratio(value: str | None) -> float:
     """Parse a text opacity component and clamp it to the SVG ``0..1`` range."""
     if value is None:
         return 1.0
-    try:
-        return max(0.0, min(1.0, float(value)))
-    except ValueError:
-        return 1.0
+    return parse_project_opacity(value)
 
 
 def _override_run_attrs(
     parent_attrs: dict[str, Any],
     tspan: ET.Element,
+    ctx: ConvertContext,
 ) -> dict[str, Any]:
     """Layer a tspan's styling attributes over the inherited run attrs."""
     run_attrs = dict(parent_attrs)
@@ -1972,7 +1943,9 @@ def _override_run_attrs(
     )
 
     if tspan_attr('font-weight'):
-        run_attrs['font_weight'] = tspan_attr('font-weight')
+        run_attrs['font_weight'] = parse_project_font_weight(
+            tspan_attr('font-weight')
+        ).canonical
     if tspan_attr('fill'):
         child_fill = tspan_attr('fill')
         run_attrs['fill_raw'] = child_fill
@@ -1987,7 +1960,10 @@ def _override_run_attrs(
             run_attrs.get('stroke_width', 1.0),
             font_size=float(run_attrs.get('font_size', 16)),
         )
-    if tspan_attr('font-size'):
+    resolved_font_size = ctx.text_font_sizes.get(id(tspan))
+    if resolved_font_size is not None:
+        run_attrs['font_size'] = resolved_font_size * ctx.scale_y
+    elif tspan_attr('font-size'):
         run_attrs['font_size'] = parse_svg_length(
             tspan_attr('font-size'),
             run_attrs['font_size'],
@@ -1996,21 +1972,29 @@ def _override_run_attrs(
     if tspan_attr('font-family'):
         run_attrs['font_family'] = tspan_attr('font-family')
     if tspan_attr('font-style'):
-        run_attrs['font_style'] = tspan_attr('font-style')
+        run_attrs['font_style'] = parse_project_font_style(
+            tspan_attr('font-style')
+        ).canonical
     if tspan_attr('text-decoration'):
-        run_attrs['text_decoration'] = tspan_attr('text-decoration')
-    if tspan_attr('letter-spacing'):
-        run_attrs['letter_spacing'] = _parse_letter_spacing_px(
+        run_attrs['text_decoration'] = parse_project_text_decoration(
+            tspan_attr('text-decoration')
+        ).canonical
+    resolved_letter_spacing = ctx.text_letter_spacings.get(id(tspan))
+    if resolved_letter_spacing is not None:
+        run_attrs['letter_spacing'] = resolved_letter_spacing * ctx.scale_x
+    elif tspan_attr('letter-spacing'):
+        run_attrs['letter_spacing'] = parse_project_letter_spacing(
             tspan_attr('letter-spacing'),
             font_size=float(run_attrs.get('font_size', 16)),
             scale_x=float(run_attrs.get('_scale_x', 1.0)),
-        )
+        ).value
     return run_attrs
 
 
 def _collect_tspan_runs(
     tspan: ET.Element,
     inherited_attrs: dict[str, Any],
+    ctx: ConvertContext,
     preserve_space: bool = False,
 ) -> list[dict[str, Any]]:
     """Recursively turn a tspan subtree into runs, propagating styling through nested tspans.
@@ -2018,7 +2002,7 @@ def _collect_tspan_runs(
     Order: tspan.text → (each nested child tspan's runs → that child's tail under THIS tspan's attrs).
     """
     runs: list[dict[str, Any]] = []
-    own_attrs = _override_run_attrs(inherited_attrs, tspan)
+    own_attrs = _override_run_attrs(inherited_attrs, tspan, ctx)
     child_preserve_space = preserve_space or _preserves_space(tspan)
 
     if tspan.text:
@@ -2029,7 +2013,9 @@ def _collect_tspan_runs(
     for child in tspan:
         child_tag = child.tag.replace(f'{{{SVG_NS}}}', '')
         if child_tag == 'tspan':
-            runs.extend(_collect_tspan_runs(child, own_attrs, child_preserve_space))
+            runs.extend(
+                _collect_tspan_runs(child, own_attrs, ctx, child_preserve_space)
+            )
             if child.tail:
                 t = _normalize_text(child.tail, preserve_space=child_preserve_space)
                 if t:
@@ -2041,6 +2027,7 @@ def _collect_tspan_runs(
 def _build_text_runs(
     elem: ET.Element,
     parent_attrs: dict[str, Any],
+    ctx: ConvertContext,
 ) -> list[dict[str, Any]]:
     """Build a list of text runs from a <text> element, handling <tspan> children.
 
@@ -2059,7 +2046,9 @@ def _build_text_runs(
     for child in elem:
         child_tag = child.tag.replace(f'{{{SVG_NS}}}', '')
         if child_tag == 'tspan':
-            runs.extend(_collect_tspan_runs(child, parent_attrs, preserve_space))
+            runs.extend(
+                _collect_tspan_runs(child, parent_attrs, ctx, preserve_space)
+            )
             if child.tail:
                 t = _normalize_text(child.tail, preserve_space=preserve_space)
                 if t:
@@ -2161,10 +2150,13 @@ def _build_run_xml(
     # / integer snapping — whatever the px works out to is the size, e.g.
     # 18px -> 13.5pt, 24px -> 18.0pt, 42px -> 31.5pt.
     sz = font_px_to_hpt(fs_px)
-    b_attr = ' b="1"' if fw in ('bold', '600', '700', '800', '900') else ''
+    b_attr = ' b="1"' if parse_project_font_weight(fw).value else ''
     i_attr = ' i="1"' if fstyle == 'italic' else ''
-    u_attr = ' u="sng"' if 'underline' in text_dec else ''
-    strike_attr = ' strike="sngStrike"' if 'line-through' in text_dec else ''
+    underline, strike = parse_project_text_decoration(
+        text_dec or 'none'
+    ).value
+    u_attr = ' u="sng"' if underline else ''
+    strike_attr = ' strike="sngStrike"' if strike else ''
     spc_attr = _letter_spacing_to_drawingml_spc(letter_spacing_px)
 
     fonts = parse_font_family(ff) if ff else default_fonts
@@ -2196,13 +2188,23 @@ def convert_text(elem: ET.Element, ctx: ConvertContext) -> ShapeResult | None:
     """Convert SVG <text> to DrawingML text shape with multi-run support."""
     x = ctx_x(svg_length_x(elem.get('x'), ctx), ctx)
     y = ctx_y(svg_length_y(elem.get('y'), ctx), ctx)
+    resolved_font_size = ctx.text_font_sizes.get(id(elem))
     font_size = (
-        parse_svg_length(_get_attr(elem, 'font-size', ctx), 16, font_size=16)
-        * ctx.scale_y
+        resolved_font_size * ctx.scale_y
+        if resolved_font_size is not None
+        else parse_svg_length(
+            _get_attr(elem, 'font-size', ctx),
+            16,
+            font_size=16,
+        ) * ctx.scale_y
     )
-    font_weight = _get_attr(elem, 'font-weight', ctx) or '400'
+    font_weight = parse_project_font_weight(
+        _get_attr(elem, 'font-weight', ctx) or '400'
+    ).canonical
     font_family_str = _get_attr(elem, 'font-family', ctx) or ''
-    text_anchor = _get_attr(elem, 'text-anchor', ctx) or 'start'
+    text_anchor = parse_project_text_anchor(
+        _get_attr(elem, 'text-anchor', ctx) or 'start'
+    ).canonical
     fill_raw = _get_attr(elem, 'fill', ctx) or '#000000'
     fill_color = parse_hex_color(fill_raw) or '000000'
     opacity = get_fill_opacity(elem, ctx)
@@ -2213,13 +2215,24 @@ def convert_text(elem: ET.Element, ctx: ConvertContext) -> ShapeResult | None:
     stroke_width = svg_length_size(_get_attr(elem, 'stroke-width', ctx), ctx, 1.0)
     stroke_opacity = get_stroke_opacity(elem, ctx)
     stroke_opacity_value = _text_opacity_ratio(_get_attr(elem, 'stroke-opacity', ctx))
-    font_style = _get_attr(elem, 'font-style', ctx) or ''
-    text_decoration = _get_attr(elem, 'text-decoration', ctx) or ''
-    letter_spacing_px = _parse_letter_spacing_px(
-        _get_attr(elem, 'letter-spacing', ctx),
-        font_size=font_size,
-        scale_x=ctx.scale_x or 1.0,
-    )
+    font_style = parse_project_font_style(
+        _get_attr(elem, 'font-style', ctx) or 'normal'
+    ).canonical
+    text_decoration = parse_project_text_decoration(
+        _get_attr(elem, 'text-decoration', ctx) or 'none'
+    ).canonical
+    raw_letter_spacing = _get_attr(elem, 'letter-spacing', ctx)
+    resolved_letter_spacing = ctx.text_letter_spacings.get(id(elem))
+    if resolved_letter_spacing is not None:
+        letter_spacing_px = resolved_letter_spacing * ctx.scale_x
+    elif raw_letter_spacing is not None:
+        letter_spacing_px = parse_project_letter_spacing(
+            raw_letter_spacing,
+            font_size=font_size,
+            scale_x=ctx.scale_x or 1.0,
+        ).value
+    else:
+        letter_spacing_px = 0.0
 
     fonts = parse_font_family(font_family_str)
 
@@ -2266,7 +2279,12 @@ def convert_text(elem: ET.Element, ctx: ConvertContext) -> ShapeResult | None:
         for child in elem:
             if child.tag != f'{{{SVG_NS}}}tspan':
                 continue
-            line_runs = _collect_tspan_runs(child, parent_attrs, preserve_space)
+            line_runs = _collect_tspan_runs(
+                child,
+                parent_attrs,
+                ctx,
+                preserve_space,
+            )
             if line_runs and not preserve_space:
                 line_runs[0]['text'] = line_runs[0]['text'].lstrip(' ')
                 line_runs[-1]['text'] = line_runs[-1]['text'].rstrip(' ')
@@ -2311,7 +2329,7 @@ def convert_text(elem: ET.Element, ctx: ConvertContext) -> ShapeResult | None:
     if paragraph_runs is not None:
         runs = [r for line in paragraph_runs for r in line]
     else:
-        runs = _build_text_runs(elem, parent_attrs)
+        runs = _build_text_runs(elem, parent_attrs, ctx)
         runs, single_bullet = _extract_text_bullet(runs)
 
     full_text = ''.join(r['text'] for r in runs) if runs else ''
@@ -2367,16 +2385,26 @@ def convert_text(elem: ET.Element, ctx: ConvertContext) -> ShapeResult | None:
     box_h = text_height + padding
 
     text_transform = elem.get('transform', '')
-    if text_transform and 'rotate' not in text_transform and not ctx.use_transform_matrix:
-        try:
-            a, b, c, d, e, f = parse_transform_matrix(text_transform)
-        except Exception:
-            a, b, c, d, e, f = 1.0, 0.0, 0.0, 1.0, 0.0, 0.0
+    text_operations = (
+        parse_transform_operations(text_transform)
+        if text_transform else ()
+    )
+    translate_only = bool(text_operations) and all(
+        name == 'translate' for name, _args in text_operations
+    )
+    rotate_only = (
+        len(text_operations) == 1
+        and text_operations[0][0] == 'rotate'
+    )
+    if text_operations and not (translate_only or rotate_only):
+        raise ValueError(
+            'Text transform must be a translate-only list or one rotate operation'
+        )
+    if translate_only and not ctx.use_transform_matrix:
+        a, b, c, d, e, f = parse_transform_matrix(text_transform)
         # A pure-translate transform on a text element (hand-authored, or written
         # by a live-preview move) was otherwise ignored here, drifting the text.
-        # Absorb the translation into the frame position; a scaling transform
-        # would also need to scale font size / line metrics, so leave
-        # non-translate transforms alone.
+        # Absorb the translation into the frame position.
         if (
             abs(a - 1.0) < 1e-9 and abs(b) < 1e-9
             and abs(c) < 1e-9 and abs(d - 1.0) < 1e-9
@@ -2394,26 +2422,22 @@ def convert_text(elem: ET.Element, ctx: ConvertContext) -> ShapeResult | None:
     # box so its center lands where SVG would place the rotated visual center —
     # otherwise rotated y-axis labels etc. drift to the wrong location.
     text_rot = 0
-    if text_transform:
-        rot_match = re.search(
-            r'rotate\(\s*([-\d.]+)(?:[\s,]+([-\d.]+)[\s,]+([-\d.]+))?',
-            text_transform,
-        )
-        if rot_match:
-            angle_deg = float(rot_match.group(1))
-            text_rot = int(angle_deg * ANGLE_UNIT)
-            if rot_match.group(2) is not None:
-                pivot_x = ctx_x(float(rot_match.group(2)), ctx)
-                pivot_y = ctx_y(float(rot_match.group(3)), ctx)
-                cx_box = box_x + box_w / 2
-                cy_box = box_y + box_h / 2
-                rad = math.radians(angle_deg)
-                dx = cx_box - pivot_x
-                dy = cy_box - pivot_y
-                new_cx = pivot_x + dx * math.cos(rad) - dy * math.sin(rad)
-                new_cy = pivot_y + dx * math.sin(rad) + dy * math.cos(rad)
-                box_x = new_cx - box_w / 2
-                box_y = new_cy - box_h / 2
+    if rotate_only:
+        rotate_args = text_operations[0][1]
+        angle_deg = rotate_args[0]
+        text_rot = int(angle_deg * ANGLE_UNIT)
+        if len(rotate_args) == 3:
+            pivot_x = ctx_x(rotate_args[1], ctx)
+            pivot_y = ctx_y(rotate_args[2], ctx)
+            cx_box = box_x + box_w / 2
+            cy_box = box_y + box_h / 2
+            rad = math.radians(angle_deg)
+            dx = cx_box - pivot_x
+            dy = cy_box - pivot_y
+            new_cx = pivot_x + dx * math.cos(rad) - dy * math.sin(rad)
+            new_cy = pivot_y + dx * math.sin(rad) + dy * math.cos(rad)
+            box_x = new_cx - box_w / 2
+            box_y = new_cy - box_h / 2
 
     # Alignment
     algn_map = {'start': 'l', 'middle': 'ctr', 'end': 'r'}
@@ -2635,8 +2659,10 @@ def _resolve_clip_geometry(
 
     # --- Rect with rx/ry → preset roundRect ---
     if shape_tag == 'rect':
-        rx = _f(shape.get('rx'))
-        ry = _f(shape.get('ry'), rx)
+        rx_attr = shape.get('rx')
+        ry_attr = shape.get('ry')
+        rx = svg_length_x(rx_attr, ctx) if rx_attr is not None else 0.0
+        ry = svg_length_y(ry_attr, ctx) if ry_attr is not None else rx
         if rx <= 0 and ry <= 0:
             return DEFAULT  # plain rect clip is a no-op
         r = max(rx, ry)
@@ -2668,9 +2694,7 @@ def _resolve_clip_geometry(
 
     # --- Polygon → custGeom ---
     if shape_tag == 'polygon':
-        pts = _parse_points(shape.get('points', ''))
-        if not pts:
-            return DEFAULT
+        pts = parse_svg_points(shape.get('points', ''), min_points=3)
         commands = [PathCommand('M', [pts[0][0], pts[0][1]])]
         for px_, py_ in pts[1:]:
             commands.append(PathCommand('L', [px_, py_]))
@@ -2764,14 +2788,6 @@ def _read_image_size(data: bytes) -> tuple[int | None, int | None]:
             return img.size
     except (UnidentifiedImageError, OSError, ValueError):
         return (None, None)
-
-
-def _parse_preserve_aspect_ratio(par: str | None) -> tuple[str, str]:
-    """Parse SVG preserveAspectRatio into ``(align, mode)``."""
-    parts = (par or 'xMidYMid meet').strip().split()
-    align = parts[0] if parts else 'xMidYMid'
-    mode = parts[1] if len(parts) > 1 else 'meet'
-    return align, mode
 
 
 def _image_has_alpha(img: Any) -> bool:
@@ -2924,7 +2940,9 @@ def _optimize_image_for_pptx(
     if getattr(img, 'is_animated', False):
         return img_data, img_format
 
-    align, mode = _parse_preserve_aspect_ratio(elem.get('preserveAspectRatio'))
+    align, mode = parse_project_image_aspect_ratio(
+        elem.get('preserveAspectRatio')
+    )
     target_w, target_h = _fit_full_image_target(
         img.size[0],
         img.size[1],
@@ -2982,8 +3000,7 @@ def _compute_slice_src_rect(
     crop_w_total = max(0.0, img_w - visible_w)
     crop_h_total = max(0.0, img_h - visible_h)
 
-    x_anchor = {'xMin': 0.0, 'xMid': 0.5, 'xMax': 1.0}.get(align[:4], 0.5)
-    y_anchor = {'YMin': 0.0, 'YMid': 0.5, 'YMax': 1.0}.get(align[4:], 0.5)
+    x_anchor, y_anchor = PROJECT_IMAGE_ASPECT_RATIO_ANCHORS[align]
 
     crop_l = crop_w_total * x_anchor
     crop_r = crop_w_total - crop_l
@@ -3013,7 +3030,9 @@ def _resolve_image_src_rect(
     shrinks the picture frame to match image aspect ratio); none mode keeps
     the legacy stretch behaviour intentionally.
     """
-    align, mode = _parse_preserve_aspect_ratio(elem.get('preserveAspectRatio'))
+    align, mode = parse_project_image_aspect_ratio(
+        elem.get('preserveAspectRatio')
+    )
 
     if align == 'none' or mode != 'slice':
         return ''  # meet handled by frame fit; none → stretch is correct per SVG spec
@@ -3051,7 +3070,9 @@ def _resolve_image_meet_fit(
       - intrinsic image dimensions cannot be read
       - frame already matches image ratio (no-op)
     """
-    align, mode = _parse_preserve_aspect_ratio(elem.get('preserveAspectRatio'))
+    align, mode = parse_project_image_aspect_ratio(
+        elem.get('preserveAspectRatio')
+    )
 
     if align == 'none' or mode == 'slice':
         return None
@@ -3069,8 +3090,7 @@ def _resolve_image_meet_fit(
     if abs(fit_w - box_w) < 0.5 and abs(fit_h - box_h) < 0.5:
         return None  # already matches — no adjustment
 
-    x_anchor = {'xMin': 0.0, 'xMid': 0.5, 'xMax': 1.0}.get(align[:4], 0.5)
-    y_anchor = {'YMin': 0.0, 'YMid': 0.5, 'YMax': 1.0}.get(align[4:], 0.5)
+    x_anchor, y_anchor = PROJECT_IMAGE_ASPECT_RATIO_ANCHORS[align]
 
     dx = (box_w - fit_w) * x_anchor
     dy = (box_h - fit_h) * y_anchor

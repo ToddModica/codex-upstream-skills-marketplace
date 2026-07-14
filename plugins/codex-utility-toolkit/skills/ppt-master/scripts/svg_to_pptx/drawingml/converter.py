@@ -19,20 +19,46 @@ from pptx_shapes import (
     validate_ooxml_xfrm,
 )
 from pptx_to_svg.preset_authoring import (
-    AUTHORING_ATTR,
-    AUTHORING_VALUE,
-    validate_authored_preset_group,
+    materialize_compact_authored_preset_tree,
     validate_authored_preset_tree,
 )
 from resource_paths import icon_search_dirs_for_svg
 
 from .context import ConvertContext, ShapeResult
+from .paths import (
+    project_freeform_geometry_errors,
+    project_gradient_geometry_errors,
+)
 from .theme_colors import ThemeColorSpec
 from .theme_fonts import ThemeFontSpec
+from .text_properties import (
+    materialize_project_text_metrics,
+    project_text_property_errors,
+    resolve_project_font_sizes,
+    resolve_project_letter_spacings,
+)
 from .utils import (
-    SVG_NS, EMU_PER_PX,
-    _extract_inheritable_styles, _f, _get_attr, parse_transform_matrix, resolve_url_id,
+    EMU_PER_PX,
+    SVG_NS,
+    _extract_inheritable_styles,
+    _get_attr,
     parse_svg_length,
+    parse_transform_operations,
+    parse_transform_matrix,
+    project_definition_errors,
+    project_definition_index,
+    project_filter_errors,
+    project_geometry_length_errors,
+    project_gradient_errors,
+    project_image_aspect_ratio_errors,
+    project_opacity_errors,
+    project_paint_errors,
+    project_paint_reference_errors,
+    project_stroke_style_errors,
+    project_transform_errors,
+    resolve_url_id,
+    supports_full_project_transform,
+    validate_dml_shape_matrix,
 )
 from .styles import (
     build_effect_xml, build_fill_xml,
@@ -46,15 +72,230 @@ from .elements import (
 )
 from ..animation_config import is_chrome_id
 from ..native_objects import (
+    NativeMarkerAttributeError,
     convert_native_object,
+    native_metadata_payload_matches,
+    native_replacement_kind,
     native_marker_transform,
     snapshot_native_fallback_freshness,
 )
+from ..native_objects.marker_status import native_marker_status_errors
 from ..semantic_markers import is_static_page_frame
 
 
 class SvgNativeConversionError(RuntimeError):
     """Raised when an SVG cannot be faithfully converted to native DrawingML."""
+
+
+def _require_chart_table_marker_attributes(
+    root: ET.Element,
+    svg_path: Path | str,
+) -> None:
+    """Reject contradictory chart/table marker aliases before either route."""
+    errors: list[str] = []
+    for elem in root.iter():
+        if elem.tag.rsplit('}', 1)[-1] == 'metadata':
+            continue
+        marker_errors = native_marker_status_errors(elem)
+        if marker_errors:
+            marker_id = elem.get('id') or elem.get('data-name') or '<unnamed>'
+            errors.extend(f'{marker_id}: {error}' for error in marker_errors)
+            continue
+        marker_id = elem.get('id') or elem.get('data-name') or '<unnamed>'
+        kind = native_replacement_kind(elem)
+        if not kind:
+            continue
+        for child in elem:
+            if child.tag.rsplit('}', 1)[-1] != 'metadata':
+                continue
+            try:
+                native_metadata_payload_matches(child, kind)
+            except NativeMarkerAttributeError as exc:
+                errors.append(f'{marker_id}: {exc}')
+    if not errors:
+        return
+    preview = '; '.join(errors[:8])
+    suffix = '' if len(errors) <= 8 else f'; +{len(errors) - 8} more'
+    raise SvgNativeConversionError(
+        f'{Path(svg_path).name}: invalid chart/table replacement metadata: '
+        f'{preview}{suffix}'
+    )
+
+
+def _require_project_freeform_geometry(
+    root: ET.Element,
+    svg_path: Path | str,
+) -> None:
+    """Reject malformed path and points values with one aggregated error."""
+    errors = project_freeform_geometry_errors(root)
+    if not errors:
+        return
+    preview = '; '.join(errors[:8])
+    suffix = '' if len(errors) <= 8 else f'; +{len(errors) - 8} more'
+    raise SvgNativeConversionError(
+        f'{Path(svg_path).name}: invalid project freeform geometry: '
+        f'{preview}{suffix}'
+    )
+
+
+def _require_project_transforms(
+    root: ET.Element,
+    svg_path: Path | str,
+) -> None:
+    """Reject invalid project transform syntax and mappings before conversion."""
+    errors = project_transform_errors(root)
+    if not errors:
+        return
+    preview = '; '.join(errors[:8])
+    suffix = '' if len(errors) <= 8 else f'; +{len(errors) - 8} more'
+    raise SvgNativeConversionError(
+        f'{Path(svg_path).name}: invalid project transform(s): '
+        f'{preview}{suffix}'
+    )
+
+
+def _require_project_stroke_styles(
+    root: ET.Element,
+    svg_path: Path | str,
+) -> None:
+    """Reject invalid project line-style syntax and mappings before conversion."""
+    errors = project_stroke_style_errors(root)
+    if not errors:
+        return
+    preview = '; '.join(errors[:8])
+    suffix = '' if len(errors) <= 8 else f'; +{len(errors) - 8} more'
+    raise SvgNativeConversionError(
+        f'{Path(svg_path).name}: invalid project line style(s): '
+        f'{preview}{suffix}'
+    )
+
+
+def _require_project_image_aspect_ratios(
+    root: ET.Element,
+    svg_path: Path | str,
+) -> None:
+    """Reject ambiguous image fit/crop values before native conversion."""
+    errors = project_image_aspect_ratio_errors(root)
+    if not errors:
+        return
+    preview = '; '.join(errors[:8])
+    suffix = '' if len(errors) <= 8 else f'; +{len(errors) - 8} more'
+    raise SvgNativeConversionError(
+        f'{Path(svg_path).name}: invalid project image aspect ratio(s): '
+        f'{preview}{suffix}'
+    )
+
+
+def _require_project_opacities(
+    root: ET.Element,
+    svg_path: Path | str,
+) -> None:
+    """Reject malformed opacity values before native conversion."""
+    errors = project_opacity_errors(root)
+    if not errors:
+        return
+    preview = '; '.join(errors[:8])
+    suffix = '' if len(errors) <= 8 else f'; +{len(errors) - 8} more'
+    raise SvgNativeConversionError(
+        f'{Path(svg_path).name}: invalid project opacity value(s): '
+        f'{preview}{suffix}'
+    )
+
+
+def _require_project_paints(
+    root: ET.Element,
+    svg_path: Path | str,
+) -> None:
+    """Reject invalid paint values before native conversion."""
+    errors = project_paint_errors(root)
+    if not errors:
+        return
+    preview = '; '.join(errors[:8])
+    suffix = '' if len(errors) <= 8 else f'; +{len(errors) - 8} more'
+    raise SvgNativeConversionError(
+        f'{Path(svg_path).name}: invalid project paint value(s): '
+        f'{preview}{suffix}'
+    )
+
+
+def _require_project_definitions(
+    root: ET.Element,
+    svg_path: Path | str,
+) -> None:
+    """Reject definitions outside the direct, unique local-ref contract."""
+    errors = project_definition_errors(root)
+    if not errors:
+        return
+    preview = '; '.join(errors[:8])
+    suffix = '' if len(errors) <= 8 else f'; +{len(errors) - 8} more'
+    raise SvgNativeConversionError(
+        f'{Path(svg_path).name}: invalid project definition(s): '
+        f'{preview}{suffix}'
+    )
+
+
+def _require_project_paint_references(
+    root: ET.Element,
+    svg_path: Path | str,
+) -> None:
+    """Reject unresolved or context-invalid local paint references."""
+    errors = project_paint_reference_errors(root)
+    if not errors:
+        return
+    preview = '; '.join(errors[:8])
+    suffix = '' if len(errors) <= 8 else f'; +{len(errors) - 8} more'
+    raise SvgNativeConversionError(
+        f'{Path(svg_path).name}: invalid project paint reference(s): '
+        f'{preview}{suffix}'
+    )
+
+
+def _require_project_gradients(
+    root: ET.Element,
+    svg_path: Path | str,
+) -> None:
+    """Reject gradients outside the normalized native interface."""
+    errors = project_gradient_errors(root) + project_gradient_geometry_errors(root)
+    if not errors:
+        return
+    preview = '; '.join(errors[:8])
+    suffix = '' if len(errors) <= 8 else f'; +{len(errors) - 8} more'
+    raise SvgNativeConversionError(
+        f'{Path(svg_path).name}: invalid project gradient(s): '
+        f'{preview}{suffix}'
+    )
+
+
+def _require_project_filters(
+    root: ET.Element,
+    svg_path: Path | str,
+) -> None:
+    """Reject filters outside the native shadow/glow interface."""
+    errors = project_filter_errors(root)
+    if not errors:
+        return
+    preview = '; '.join(errors[:8])
+    suffix = '' if len(errors) <= 8 else f'; +{len(errors) - 8} more'
+    raise SvgNativeConversionError(
+        f'{Path(svg_path).name}: invalid project filter(s): '
+        f'{preview}{suffix}'
+    )
+
+
+def _require_project_text_properties(
+    root: ET.Element,
+    svg_path: Path | str,
+) -> None:
+    """Reject text declarations outside the closed DrawingML mapping."""
+    errors = project_text_property_errors(root)
+    if not errors:
+        return
+    preview = '; '.join(errors[:8])
+    suffix = '' if len(errors) <= 8 else f'; +{len(errors) - 8} more'
+    raise SvgNativeConversionError(
+        f'{Path(svg_path).name}: invalid project text property(s): '
+        f'{preview}{suffix}'
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -69,17 +310,17 @@ def parse_transform(transform_str: str) -> tuple[float, float, float, float, flo
     ``translate(cx cy) scale(-1 -1) translate(-cx -cy)`` which encode a flip
     around a non-origin pivot.
 
-    When the composed matrix has no shear and no rotation, the decomposition is
-    exact (sx/sy may be negative to represent flips). When rotation is present
-    without shear, sx/sy default to the column magnitudes and angle_deg is the
-    rotation. Shear is not representable in this 5-tuple and silently
-    collapses; callers that need exact fidelity should consume the full matrix
-    via ``parse_transform_matrix``.
+    When the composed matrix has no rotation, the decomposition preserves
+    signed scale for flips. With rotation, scale uses the column magnitudes and
+    angle uses the first transformed axis. Zero or non-orthogonal axes fail
+    before decomposition because this tuple cannot represent them faithfully.
     """
     if not transform_str:
         return 0.0, 0.0, 1.0, 1.0, 0.0
 
-    a, b, c, d, e, f = parse_transform_matrix(transform_str)
+    matrix = parse_transform_matrix(transform_str)
+    validate_dml_shape_matrix(matrix)
+    a, b, c, d, e, f = matrix
 
     # No shear / rotation: direct decomposition preserves the original signs of
     # sx / sy. ctx_x / ctx_y use the simple ``val * sx + tx`` formula, so this
@@ -105,11 +346,6 @@ def parse_transform(transform_str: str) -> tuple[float, float, float, float, flo
 # around (cx, cy). DrawingML grpSp ``rot`` always rotates around the group's
 # own bounding-box centre — we need the SVG pivot so ``convert_g`` can
 # compensate for the offset between those two centres.
-_ROTATE_RE = re.compile(
-    r'rotate\(\s*([-\d.eE+]+)(?:[\s,]+([-\d.eE+]+)[\s,]+([-\d.eE+]+))?\s*\)'
-)
-
-
 def _root_viewport_size(root: ET.Element) -> tuple[float, float]:
     """Return the SVG root viewport size in user units."""
     view_box = root.get('viewBox')
@@ -137,14 +373,12 @@ def _extract_rotate_pivot(transform_str: str) -> tuple[float, float] | None:
     """
     if not transform_str:
         return None
-    ops = [op for op in re.findall(r'(\w+)\s*\(', transform_str) if op]
-    if ops != ['rotate']:
+    operations = parse_transform_operations(transform_str)
+    if len(operations) != 1 or operations[0][0] != 'rotate':
         return None
-    match = _ROTATE_RE.search(transform_str)
-    if not match:
-        return None
-    cx = float(match.group(2)) if match.group(2) is not None else 0.0
-    cy = float(match.group(3)) if match.group(3) is not None else 0.0
+    args = operations[0][1]
+    cx = args[1] if len(args) == 3 else 0.0
+    cy = args[2] if len(args) == 3 else 0.0
     return cx, cy
 
 
@@ -282,7 +516,7 @@ def convert_g(elem: ET.Element, ctx: ConvertContext) -> ShapeResult | None:
     """
     transform = elem.get('transform', '')
     native_subtree_active = ctx.native_objects_enabled and any(
-        descendant.get('data-pptx-native')
+        native_replacement_kind(descendant)
         and descendant.tag.replace(f'{{{SVG_NS}}}', '') != 'metadata'
         for descendant in elem.iter()
     )
@@ -325,8 +559,11 @@ def convert_g(elem: ET.Element, ctx: ConvertContext) -> ShapeResult | None:
         child for child in elem
         if child.tag.replace(f'{{{SVG_NS}}}', '') not in _NON_VISUAL_TAGS
     ]
-    matrix_supported = not native_subtree_active and bool(transform) and visual_children and all(
-        _supports_matrix_transform(child) for child in visual_children
+    matrix_supported = (
+        not native_subtree_active
+        and bool(transform)
+        and visual_children
+        and supports_full_project_transform(elem)
     )
     # A pure ``rotate(angle [cx cy])`` falls through to the fallback path
     # below (children are rect/text/path/etc. that don't consume a full
@@ -365,8 +602,9 @@ def convert_g(elem: ET.Element, ctx: ConvertContext) -> ShapeResult | None:
 
     if native_subtree_active and child_ctx.opacity_multiplier < 1.0:
         raise SvgNativeConversionError(
-            "Group opacity cannot be applied to data-pptx-native table/chart "
-            "objects; export without --native-objects to use the SVG fallback"
+            "Group opacity cannot be applied to data-pptx-replace-with chart/table "
+            "objects; export without --native-charts-and-tables to use the "
+            "shape-based SVG fallback"
         )
 
     if child_ctx.native_objects_enabled:
@@ -383,13 +621,6 @@ def convert_g(elem: ET.Element, ctx: ConvertContext) -> ShapeResult | None:
         elem.get('data-pptx-object') in {'shape', 'connector'}
         and elem.get('data-pptx-prst') is not None
     ):
-        if elem.get(AUTHORING_ATTR) == AUTHORING_VALUE:
-            authoring_errors = validate_authored_preset_group(elem)
-            if authoring_errors:
-                raise SvgNativeConversionError(
-                    'Invalid authored preset shape: '
-                    + '; '.join(authoring_errors)
-                )
         _require_unchanged_preset_preview(elem)
 
     txbody_meta = _txbody_metadata(elem)
@@ -581,30 +812,6 @@ def convert_g(elem: ET.Element, ctx: ConvertContext) -> ShapeResult | None:
 
 _NON_VISUAL_TAGS = frozenset(('defs', 'title', 'desc', 'metadata', 'style'))
 
-
-def _supports_matrix_transform(elem: ET.Element) -> bool:
-    """Return whether this subtree can consume a full affine matrix directly."""
-    tag = elem.tag.replace(f'{{{SVG_NS}}}', '')
-    if tag in {'rect', 'circle', 'ellipse', 'line', 'path', 'polygon', 'polyline', 'image'}:
-        return True
-    if tag == 'svg':
-        visual_children = [
-            child for child in elem
-            if child.tag.replace(f'{{{SVG_NS}}}', '') not in _NON_VISUAL_TAGS
-        ]
-        return len(visual_children) == 1 and (
-            visual_children[0].tag.replace(f'{{{SVG_NS}}}', '') == 'image'
-        )
-    if tag == 'g':
-        visual_children = [
-            child for child in elem
-            if child.tag.replace(f'{{{SVG_NS}}}', '') not in _NON_VISUAL_TAGS
-        ]
-        return bool(visual_children) and all(
-            _supports_matrix_transform(child) for child in visual_children
-        )
-    return False
-
 _CONVERTERS = {
     'rect': convert_rect,
     'circle': convert_circle,
@@ -633,7 +840,12 @@ def _parse_svg_canvas(root: ET.Element) -> tuple[float, float, float, float]:
                 return x, y, w, h
         except ValueError:
             pass
-    return 0.0, 0.0, _f(root.get('width')), _f(root.get('height'))
+    return (
+        0.0,
+        0.0,
+        parse_svg_length(root.get('width'), 0.0),
+        parse_svg_length(root.get('height'), 0.0),
+    )
 
 
 def _is_full_canvas_rect(
@@ -654,7 +866,10 @@ def _is_full_canvas_rect(
         )
     ):
         return False
-    if _f(elem.get('rx')) > 0 or _f(elem.get('ry')) > 0:
+    if (
+        parse_svg_length(elem.get('rx'), 0.0) > 0
+        or parse_svg_length(elem.get('ry'), 0.0) > 0
+    ):
         return False
 
     canvas_x, canvas_y, canvas_w, canvas_h = canvas
@@ -662,13 +877,13 @@ def _is_full_canvas_rect(
         return False
 
     tolerance = 0.5
-    if abs(_f(elem.get('x')) - canvas_x) > tolerance:
+    if abs(parse_svg_length(elem.get('x'), 0.0) - canvas_x) > tolerance:
         return False
-    if abs(_f(elem.get('y')) - canvas_y) > tolerance:
+    if abs(parse_svg_length(elem.get('y'), 0.0) - canvas_y) > tolerance:
         return False
-    if abs(_f(elem.get('width')) - canvas_w) > tolerance:
+    if abs(parse_svg_length(elem.get('width'), 0.0) - canvas_w) > tolerance:
         return False
-    if abs(_f(elem.get('height')) - canvas_h) > tolerance:
+    if abs(parse_svg_length(elem.get('height'), 0.0) - canvas_h) > tolerance:
         return False
 
     fill = _get_attr(elem, 'fill', ctx)
@@ -676,7 +891,7 @@ def _is_full_canvas_rect(
         return False
 
     stroke = _get_attr(elem, 'stroke', ctx)
-    stroke_width = _f(_get_attr(elem, 'stroke-width', ctx), 1.0)
+    stroke_width = parse_svg_length(_get_attr(elem, 'stroke-width', ctx), 1.0)
     stroke_opacity = get_stroke_opacity(elem, ctx)
     if stroke and stroke != 'none' and stroke_width > 0 and stroke_opacity != 0:
         return False
@@ -755,19 +970,8 @@ def _extract_background_candidate(
 
 def collect_defs(root: ET.Element) -> dict[str, ET.Element]:
     """Collect all <defs> children into an {id: element} dictionary."""
-    defs: dict[str, ET.Element] = {}
-    for defs_elem in root.iter(f'{{{SVG_NS}}}defs'):
-        for child in defs_elem:
-            elem_id = child.get('id')
-            if elem_id:
-                defs[elem_id] = child
-    # Also check for defs without namespace
-    for defs_elem in root.iter('defs'):
-        for child in defs_elem:
-            elem_id = child.get('id')
-            if elem_id:
-                defs[elem_id] = child
-    return defs
+    definitions, _duplicates = project_definition_index(root)
+    return definitions
 
 
 def _build_source_shape_id_map(root: ET.Element) -> dict[tuple[str, str], int]:
@@ -1005,7 +1209,7 @@ def collect_unsupported_visuals(
 
 
 def convert_svg_to_slide_shapes(
-    svg_path: Path,
+    svg_path: str | Path,
     slide_num: int = 1,
     verbose: bool = False,
     merge_paragraphs: bool = True,
@@ -1019,6 +1223,7 @@ def convert_svg_to_slide_shapes(
     theme_font_spec: ThemeFontSpec | None = None,
     theme_color_spec: ThemeColorSpec | None = None,
     trace_out: list[dict[str, Any]] | None = None,
+    promote_background: bool = True,
 ) -> tuple[
     str,
     dict[str, bytes],
@@ -1043,8 +1248,8 @@ def convert_svg_to_slide_shapes(
             size from rendered SVG boxes.
         image_scale: Target image pixels per SVG display pixel.
         image_quality: JPEG quality used for opaque optimized rasters.
-        native_objects: Convert explicit ``data-pptx-native`` table/chart
-            markers to native PowerPoint objects. Default off.
+        native_objects: Convert explicit ``data-pptx-replace-with`` chart/table
+            markers to native PowerPoint Chart/Table objects. Default off.
         animation_group_overrides: Explicit top-level SVG group ids from
             ``animations.json`` that override the legacy chrome-name fallback.
             Explicit structural layer/role/placeholder markers remain excluded.
@@ -1054,6 +1259,9 @@ def convert_svg_to_slide_shapes(
             locked colors emit DrawingML scheme tokens while local colors stay
             fixed.
         trace_out: Optional list populated with one per-slide trace dictionary.
+        promote_background: Promote the first eligible full-canvas rectangle
+            into native ``p:bg``. Structured export disables this generic pass
+            and applies its narrower explicit background contract later.
 
     Returns:
         (slide_xml, media_files, rel_entries, anim_targets,
@@ -1069,22 +1277,34 @@ def convert_svg_to_slide_shapes(
         - content_type_overrides: Dict of {pptx internal path: content type}
           for package_files that require [Content_Types].xml overrides.
     """
+    svg_path = Path(svg_path)
     tree = ET.parse(str(svg_path))
     root = tree.getroot()
-    if root.get('transform'):
-        raise SvgNativeConversionError(
-            'Root <svg> transform is unsupported; apply transforms to child '
-            'elements or groups'
-        )
+    _require_chart_table_marker_attributes(root, svg_path)
     authored_errors = validate_authored_preset_tree(root)
     if authored_errors:
         raise SvgNativeConversionError(
             'Invalid authored preset structure: ' + '; '.join(authored_errors)
         )
+    # Validate the source contract once, then lower compact groups to the
+    # established expanded transport IR.  Downstream conversion validates the
+    # generated preview hash, not the source-format allowlist again.
+    try:
+        materialize_compact_authored_preset_tree(root)
+    except ValueError as exc:
+        raise SvgNativeConversionError(
+            f'Invalid compact authored preset: {exc}'
+        ) from exc
     _mark_unchanged_txbody_groups(root)
     _mark_unchanged_preset_previews(root)
     if native_objects:
-        snapshot_native_fallback_freshness(root)
+        try:
+            snapshot_native_fallback_freshness(root)
+        except NativeMarkerAttributeError as exc:
+            raise SvgNativeConversionError(
+                f'{Path(svg_path).name}: conflicting chart/table replacement '
+                f'metadata: {exc}'
+            ) from exc
     trace_events: list[dict[str, Any]] | None = [] if trace_out is not None else None
     trace_steps: list[dict[str, Any]] = []
 
@@ -1109,6 +1329,30 @@ def convert_svg_to_slide_shapes(
         if verbose:
             print(f'  Materialized {geometry_count} inline geometry declaration(s)')
 
+    geometry_length_errors = project_geometry_length_errors(root)
+    if geometry_length_errors:
+        preview = '; '.join(geometry_length_errors[:8])
+        suffix = (
+            '' if len(geometry_length_errors) <= 8
+            else f'; +{len(geometry_length_errors) - 8} more'
+        )
+        raise SvgNativeConversionError(
+            f'{Path(svg_path).name}: invalid project geometry length(s): '
+            f'{preview}{suffix}'
+        )
+
+    _require_project_text_properties(root, svg_path)
+    _require_project_freeform_geometry(root, svg_path)
+    _require_project_stroke_styles(root, svg_path)
+    _require_project_opacities(root, svg_path)
+    _require_project_paints(root, svg_path)
+    _require_project_definitions(root, svg_path)
+    _require_project_paint_references(root, svg_path)
+    _require_project_gradients(root, svg_path)
+    _require_project_filters(root, svg_path)
+    _require_project_image_aspect_ratios(root, svg_path)
+    _require_project_transforms(root, svg_path)
+
     viewport_width, viewport_height = _root_viewport_size(root)
 
     # Expand project icon placeholders and static same-document <use>
@@ -1126,6 +1370,8 @@ def convert_svg_to_slide_shapes(
             trace_steps.append({'action': 'expand-use-data-icons', 'count': expanded})
         if verbose and expanded:
             print(f'  Expanded {expanded} <use data-icon="..."/> placeholder(s)')
+        if expanded:
+            _require_project_freeform_geometry(root, svg_path)
 
     try:
         injected_geometry_count = materialize_inline_geometry_properties(root)
@@ -1163,6 +1409,25 @@ def convert_svg_to_slide_shapes(
         if verbose:
             print(f'  Expanded {expanded_local} local <use href="#..."/> instance(s)')
 
+    # Recheck compiler-injected icon/use wrappers and cloned definition trees.
+    _require_project_text_properties(root, svg_path)
+    _require_project_stroke_styles(root, svg_path)
+    _require_project_opacities(root, svg_path)
+    _require_project_paints(root, svg_path)
+    _require_project_definitions(root, svg_path)
+    _require_project_paint_references(root, svg_path)
+    _require_project_gradients(root, svg_path)
+    _require_project_filters(root, svg_path)
+    _require_project_image_aspect_ratios(root, svg_path)
+    _require_project_transforms(root, svg_path)
+
+    try:
+        materialize_project_text_metrics(root)
+    except ValueError as exc:
+        raise SvgNativeConversionError(
+            f'{svg_path.name}: text-metric materialization failed: {exc}'
+        ) from exc
+
     # Flatten positional <tspan> (those with x/y/non-zero dy) into independent
     # <text> elements. DrawingML runs cannot reposition mid-paragraph, so a
     # dy-stacked block of tspans would otherwise collapse onto one baseline,
@@ -1180,6 +1445,18 @@ def convert_svg_to_slide_shapes(
         })
         if verbose:
             print('  Flattened positional <tspan> into independent <text>')
+
+    _require_project_text_properties(root, svg_path)
+    try:
+        text_font_sizes = resolve_project_font_sizes(root)
+        text_letter_spacings = resolve_project_letter_spacings(
+            root,
+            text_font_sizes,
+        )
+    except ValueError as exc:
+        raise SvgNativeConversionError(
+            f'{svg_path.name}: invalid project text-metric inheritance: {exc}'
+        ) from exc
 
     unsupported = collect_unsupported_visuals(root)
     if unsupported:
@@ -1210,6 +1487,9 @@ def convert_svg_to_slide_shapes(
         trace_events=trace_events,
         theme_font_spec=theme_font_spec,
         theme_color_spec=theme_color_spec,
+        inherited_styles=_extract_inheritable_styles(root),
+        text_font_sizes=text_font_sizes,
+        text_letter_spacings=text_letter_spacings,
     )
 
     shapes: list[str] = []
@@ -1219,7 +1499,11 @@ def convert_svg_to_slide_shapes(
         child.tag.replace(f'{{{SVG_NS}}}', '') == 'g'
         for child in root
     )
-    background_xml, background_skip_id = _extract_background_candidate(root, ctx)
+    background_xml, background_skip_id = (
+        _extract_background_candidate(root, ctx)
+        if promote_background
+        else ('', None)
+    )
     promoted_backgrounds = 1 if background_xml else 0
     if background_xml and trace_events is not None:
         trace_events.append({

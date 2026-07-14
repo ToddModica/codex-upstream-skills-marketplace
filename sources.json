@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "generated_at": "2026-07-14T03:12:47+00:00",
+  "generated_at": "2026-07-14T18:18:04+00:00",
   "user_excluded": [
     "agently-mail",
     "agents",
@@ -478,7 +478,7 @@
       "name": "ppt-master",
       "upstream": "https://github.com/hugohe3/ppt-master.git",
       "branch": "main",
-      "commit_sha": "0d3904a4ef72b8732d3d6ee23d500c21d2969425",
+      "commit_sha": "906301da0f6450826a661aee90d60b0b9dc19be3",
       "local_snapshot_sha": "0d3904a4ef72b8732d3d6ee23d500c21d2969425",
       "upstream_subpath": "skills/ppt-master",
       "local_relative": "ppt-master",

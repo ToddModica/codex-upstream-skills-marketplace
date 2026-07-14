@@ -26,10 +26,20 @@ from pathlib import Path
 from typing import Any
 from xml.etree import ElementTree as ET
 
+from pptx_to_svg.preset_authoring import (
+    authored_preset_encoding,
+    validate_authored_preset_group,
+)
+
+from ..drawingml.utils import (
+    parse_project_geometry_length,
+    project_geometry_length_errors,
+)
 from ..geometry_properties import (
     GeometryStyleError,
     materialize_inline_geometry_properties,
 )
+from ..native_objects import NativeMarkerAttributeError, native_replacement_kind
 
 
 _NON_VISUAL_TAGS = frozenset({"defs", "title", "desc", "metadata", "style"})
@@ -377,6 +387,14 @@ def _local_tag(elem: ET.Element) -> str:
     return elem.tag.rsplit("}", 1)[-1] if isinstance(elem.tag, str) else ""
 
 
+def _is_authored_preset_atom(elem: ET.Element) -> bool:
+    """Return whether one group is a valid compact authored-shape atom."""
+    return (
+        authored_preset_encoding(elem) == "compact"
+        and not validate_authored_preset_group(elem)
+    )
+
+
 def _svg_canvas(root: ET.Element) -> tuple[float, float, float, float]:
     raw_viewbox = (root.get("viewBox") or "").strip()
     values = [part for part in re.split(r"[\s,]+", raw_viewbox) if part]
@@ -404,14 +422,14 @@ def _is_full_canvas_solid_rect(
         return False
     try:
         geometry = (
-            float(elem.get("x", "0")),
-            float(elem.get("y", "0")),
-            float(elem.get("width", "0")),
-            float(elem.get("height", "0")),
+            parse_project_geometry_length(elem.get("x", "0"), "x"),
+            parse_project_geometry_length(elem.get("y", "0"), "y"),
+            parse_project_geometry_length(elem.get("width", "0"), "width"),
+            parse_project_geometry_length(elem.get("height", "0"), "height"),
         )
         corner_radius = (
-            float(elem.get("rx", "0")),
-            float(elem.get("ry", "0")),
+            parse_project_geometry_length(elem.get("rx", "0"), "rx"),
+            parse_project_geometry_length(elem.get("ry", "0"), "ry"),
         )
     except ValueError:
         return False
@@ -1150,17 +1168,28 @@ def _validate_placeholder_carrier(
             f"{svg_path.name}: {element_id} media placeholder must be declared "
             "with one direct <image> or crop <svg> carrier"
         )
-    if placeholder == "object" and tag not in _OBJECT_PLACEHOLDER_TAGS:
+    if (
+        placeholder == "object"
+        and tag not in _OBJECT_PLACEHOLDER_TAGS
+        and not _is_authored_preset_atom(carrier)
+    ):
         raise TemplateStructureError(
             f"{svg_path.name}: {element_id} object placeholder carrier must be "
-            "one direct text, image, or basic SVG shape"
+            "one direct text, image, basic SVG shape, or authored preset atom"
         )
     if placeholder in {"chart", "table"}:
-        native_kind = (carrier.get("data-pptx-native") or "").strip().lower()
+        try:
+            native_kind = native_replacement_kind(carrier)
+        except NativeMarkerAttributeError as exc:
+            raise TemplateStructureError(
+                f"{svg_path.name}: {element_id} placeholder '{placeholder}' has "
+                f"conflicting chart/table replacement metadata: {exc}"
+            ) from exc
         if tag != "g" or native_kind != placeholder:
             raise TemplateStructureError(
                 f"{svg_path.name}: {element_id} placeholder '{placeholder}' must be "
-                f"carried by one direct <g data-pptx-native=\"{placeholder}\"> marker"
+                f"carried by one direct <g data-pptx-replace-with=\"{placeholder}\"> "
+                "marker"
             )
 
 
@@ -1191,6 +1220,18 @@ def parse_template_slide(
 
     if _local_tag(root) != "svg":
         raise TemplateStructureError(f"{svg_path.name}: root element must be <svg>")
+
+    geometry_errors = project_geometry_length_errors(root)
+    if geometry_errors:
+        preview = "; ".join(geometry_errors[:8])
+        suffix = (
+            "" if len(geometry_errors) <= 8
+            else f"; +{len(geometry_errors) - 8} more"
+        )
+        raise TemplateStructureError(
+            f"{svg_path.name}: invalid project geometry length(s): "
+            f"{preview}{suffix}"
+        )
 
     master_key = (root.get("data-pptx-master") or "").strip()
     master_name = (root.get("data-pptx-master-name") or "").strip()
@@ -1327,7 +1368,12 @@ def parse_template_slide(
                 f"{svg_path.name}: data-pptx-layer='slide' is allowed only on a "
                 "direct full-canvas solid background rect"
             )
-        if structured and layer in {"master", "layout"} and tag == "g":
+        if (
+            structured
+            and layer in {"master", "layout"}
+            and tag == "g"
+            and not _is_authored_preset_atom(elem)
+        ):
             raise TemplateStructureError(
                 f"{svg_path.name}: {element_id or tag} is a <g> on the {layer} "
                 "layer; Master/Layout fixed elements must be root-level atoms"
@@ -1484,10 +1530,18 @@ def parse_template_slide(
                     )
             else:
                 if len(visual_children) != 1 or len(carrier_children) != 1:
+                    composite_hint = (
+                        " For composite object content, declare "
+                        "data-pptx-placeholder-binding='proxy' in the prototype "
+                        "and page, or create an adaptive Layout; never add a tiny "
+                        "or transparent dummy carrier."
+                        if placeholder == "object" else ""
+                    )
                     raise TemplateStructureError(
                         f"{svg_path.name}: carrier placeholder {element_id!r} must "
                         "contain exactly one visual direct child and mark it "
-                        "data-pptx-placeholder-carrier='true'"
+                        "data-pptx-placeholder-carrier='true'."
+                        f"{composite_hint}"
                     )
                 carrier = carrier_children[0]
                 placeholder_carrier_tag = _local_tag(carrier)
