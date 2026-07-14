@@ -17,6 +17,7 @@
 | shuorenhua | https://github.com/MrGeDiao/shuorenhua | MIT | writing-toolkit |
 | stop-slop | https://github.com/hardikpandya/stop-slop | MIT | writing-toolkit |
 | Taste Skill | https://github.com/Leonxlnx/taste-skill | MIT | codex-utility-toolkit |
+| PPT Master | https://github.com/hugohe3/ppt-master | MIT | codex-utility-toolkit |
 
 由 Codex 本地发行环境提供并带有 Apache-2.0 许可证的 `doc`、`pdf`、`imagegen`、`openai-docs`、`skill-creator` 和 `skill-installer`，其许可证文件保留在各自 Skill 目录中。
 

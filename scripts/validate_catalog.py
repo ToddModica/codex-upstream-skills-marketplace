@@ -38,6 +38,7 @@ REQUIRED_SKILLS = {
         "imagegen",
         "openai-docs",
         "pdf",
+        "ppt-master",
         "powershell-safe-invocation",
         "skill-creator",
         "skill-installer",

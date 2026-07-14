@@ -28,11 +28,12 @@
 
 ### codex-utility-toolkit
 
-文档、媒体读取、PowerShell、前端设计和 Codex Skill 开发工具：
+演示文稿、文档、媒体读取、PowerShell、前端设计和 Codex Skill 开发工具：
 
 - `bilibili-page-reader`
 - `doc`
 - `pdf`
+- `ppt-master`：把 PDF、DOCX、网页或文本生成原生可编辑的 PowerPoint；完整脚本、模板和参考资源随 Skill 安装
 - `imagegen`
 - `openai-docs`
 - `powershell-safe-invocation`
@@ -94,7 +95,7 @@ pwsh -NoLogo -NoProfile -File .\scripts\Update-Marketplace.ps1
 - 每天北京时间 01:17 自动检查上游；
 - 支持在 GitHub Actions 页面手动运行；
 - 按 `sources.json` 锁定的仓库和 Skill 子目录同步内容；
-- 同步 Academic Research、Nature、SciPilot、Bilibili 阅读器、PowerShell 安全调用、Taste 前端设计及其他已打包 Skills；
+- 同步 Academic Research、Nature、SciPilot、PPT Master、Bilibili 阅读器、PowerShell 安全调用、Taste 前端设计及其他已打包 Skills；
 - 自动更新来源 commit SHA；
 - 校验 Marketplace、插件清单、全部 `SKILL.md`、MCP 配置和上游许可证；
 - 仅在内容发生变化时提升受影响插件的补丁版本并提交；
@@ -125,7 +126,18 @@ Academic Research、Nature、agent-skills 和 taste-skill 都可能是 monorepo�
 - `Misaka-Mikoto-Tech/agent-skills`：MIT；
 - SciPilot Skills（`https://github.com/Haojae`）：MIT；
 - `Leonxlnx/taste-skill`：MIT；
+- `hugohe3/ppt-master`：MIT；
 - `itasca-mcp`：MIT。
+
+`ppt-master` 的插件包包含其上游 `skills/ppt-master` 完整目录和 Python 依赖清单，但 Codex 安装插件时不会自动执行第三方依赖安装。首次实际使用前，请在已安装的 Skill 目录运行：
+
+```powershell
+python -m pip install -r .\requirements.txt
+```
+
+该 Skill 可选调用多个图像生成或素材检索服务。API Key 只应保存在环境变量或用户私有配置中，不要提交到本 Marketplace 仓库。
+
+安全提示：`ppt-master` 的上游脚本会按工作流需要启动本机预览服务、访问用户指定网页或第三方图像/API 服务、调用外部转换程序，并清理其项目目录内生成的临时资源。请仅处理可信输入，使用前检查目标项目路径，并只为确实需要的可选服务配置 API Key。
 
 对于许可证位于 monorepo 根目录的 Skill，同步时会在对应 Skill 目录写入 `UPSTREAM_LICENSE`。未确认允许再分发的 Skill 只保留来源记录，不复制到插件中。详细归属见 `THIRD_PARTY_NOTICES.md`。
 

@@ -38,6 +38,7 @@ INCLUDED = {
         "imagegen",
         "openai-docs",
         "pdf",
+        "ppt-master",
         "powershell-safe-invocation",
         "skill-creator",
         "skill-installer",
@@ -72,6 +73,11 @@ MONOREPO_RULES = {
         "subpaths": {
             "design-taste-frontend": "skills/taste-skill",
         },
+    },
+    "https://github.com/hugohe3/ppt-master": {
+        "license": "MIT",
+        "license_file": "LICENSE",
+        "skill_prefix": "skills",
     },
 }
 
