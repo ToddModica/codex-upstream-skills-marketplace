@@ -1,13 +1,24 @@
 # Claude Code 安装
 
-## lite / full 怎么选
+## 方式 1：plugin 一键安装（推荐）
+
+```text
+/plugin marketplace add MrGeDiao/shuorenhua
+/plugin install shuorenhua@shuorenhua
+```
+
+在 Claude Code 对话里执行这两条命令即可，skill 自动发现和触发。升级用 `/plugin` 面板或 `claude plugin update shuorenhua`。
+
+plugin 自带全量文件（`SKILL.md` + `references/`），lite / full 的区分不再需要。已经用下面方式 2-4 手动装过的，先移除旧安装再装 plugin，避免同一个 skill 重复触发。
+
+## lite / full 怎么选（手动安装时）
 
 - `lite`：只加载 `SKILL.md`。适合临时改写和轻量审稿。
 - `full`：加载 `SKILL.md` + `references/`。适合项目级安装、公开文本、技术文档和需要误杀防护的场景。
 
 Claude Code 会基于 `SKILL.md` 开头的 description 自动发现并触发 skills 目录里的 skill，装好即用。
 
-## 方式 1：项目级
+## 方式 2：项目级
 
 ```bash
 mkdir -p .claude/skills/shuorenhua
@@ -17,7 +28,7 @@ cp -r references .claude/skills/shuorenhua/
 
 这是 full 用法，也是项目级安装的默认建议。规则跟项目一起进版本管理，团队成员 clone 即用。
 
-## 方式 2：全局
+## 方式 3：全局
 
 ```bash
 git clone https://github.com/MrGeDiao/shuorenhua.git
@@ -27,7 +38,7 @@ cp -r shuorenhua ~/.claude/skills/shuorenhua
 
 整个仓库拷进去即可，多出来的 evals、install 文件不影响触发。想要最小安装，只拷 `SKILL.md`（lite）或 `SKILL.md` + `references/`（full）。
 
-## 方式 3：跟随更新
+## 方式 4：跟随更新
 
 ```bash
 git clone https://github.com/MrGeDiao/shuorenhua.git

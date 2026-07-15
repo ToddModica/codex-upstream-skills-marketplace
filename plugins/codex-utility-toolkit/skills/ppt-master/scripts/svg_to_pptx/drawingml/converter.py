@@ -18,6 +18,7 @@ from pptx_shapes import (
     svg_text_fingerprint,
     validate_ooxml_xfrm,
 )
+from pptx_effects import project_effect_status_errors, txbody_has_run_effects
 from pptx_to_svg.preset_authoring import (
     materialize_compact_authored_preset_tree,
     validate_authored_preset_tree,
@@ -42,6 +43,7 @@ from .utils import (
     SVG_NS,
     _extract_inheritable_styles,
     _get_attr,
+    _is_unit_axis_reflection,
     parse_svg_length,
     parse_transform_operations,
     parse_transform_matrix,
@@ -51,6 +53,7 @@ from .utils import (
     project_geometry_length_errors,
     project_gradient_errors,
     project_image_aspect_ratio_errors,
+    project_marker_errors,
     project_opacity_errors,
     project_paint_errors,
     project_paint_reference_errors,
@@ -69,8 +72,16 @@ from .elements import (
     convert_line, convert_path,
     convert_polygon, convert_polyline,
     convert_text, convert_image, convert_nested_svg,
+    project_clip_path_errors,
+    project_image_errors,
+    project_nested_svg_crop_errors,
 )
-from ..animation_config import is_chrome_id
+from ..animation_config import is_chrome_id, usable_animation_group_id
+from ..canvas_contract import (
+    CanvasContractError,
+    parse_project_svg_root,
+    parse_project_viewbox,
+)
 from ..native_objects import (
     NativeMarkerAttributeError,
     convert_native_object,
@@ -135,6 +146,54 @@ def _require_project_freeform_geometry(
     raise SvgNativeConversionError(
         f'{Path(svg_path).name}: invalid project freeform geometry: '
         f'{preview}{suffix}'
+    )
+
+
+def _require_project_nested_svg_crops(
+    root: ET.Element,
+    svg_path: Path | str,
+) -> None:
+    """Reject nested SVG outside the imported picture-crop transport."""
+    errors = project_nested_svg_crop_errors(root)
+    if not errors:
+        return
+    preview = '; '.join(errors[:8])
+    suffix = '' if len(errors) <= 8 else f'; +{len(errors) - 8} more'
+    raise SvgNativeConversionError(
+        f'{Path(svg_path).name}: invalid nested SVG crop wrapper(s): '
+        f'{preview}{suffix}'
+    )
+
+
+def _require_project_clip_paths(
+    root: ET.Element,
+    svg_path: Path | str,
+) -> None:
+    """Reject clip references that cannot produce native picture geometry."""
+    errors = project_clip_path_errors(root)
+    if not errors:
+        return
+    preview = '; '.join(errors[:8])
+    suffix = '' if len(errors) <= 8 else f'; +{len(errors) - 8} more'
+    raise SvgNativeConversionError(
+        f'{Path(svg_path).name}: invalid project clip-path(s): '
+        f'{preview}{suffix}'
+    )
+
+
+def _require_project_images(
+    root: ET.Element,
+    svg_path: Path | str,
+) -> None:
+    """Reject invalid picture frames and unresolved or corrupt sources."""
+    path = Path(svg_path)
+    errors = project_image_errors(root, path.parent)
+    if not errors:
+        return
+    preview = '; '.join(errors[:8])
+    suffix = '' if len(errors) <= 8 else f'; +{len(errors) - 8} more'
+    raise SvgNativeConversionError(
+        f'{path.name}: invalid project image(s): {preview}{suffix}'
     )
 
 
@@ -250,6 +309,22 @@ def _require_project_paint_references(
     )
 
 
+def _require_project_line_end_markers(
+    root: ET.Element,
+    svg_path: Path | str,
+) -> None:
+    """Reject markers outside the native line-end contract."""
+    errors = project_marker_errors(root)
+    if not errors:
+        return
+    preview = '; '.join(errors[:8])
+    suffix = '' if len(errors) <= 8 else f'; +{len(errors) - 8} more'
+    raise SvgNativeConversionError(
+        f'{Path(svg_path).name}: invalid project line-end marker(s): '
+        f'{preview}{suffix}'
+    )
+
+
 def _require_project_gradients(
     root: ET.Element,
     svg_path: Path | str,
@@ -278,6 +353,22 @@ def _require_project_filters(
     suffix = '' if len(errors) <= 8 else f'; +{len(errors) - 8} more'
     raise SvgNativeConversionError(
         f'{Path(svg_path).name}: invalid project filter(s): '
+        f'{preview}{suffix}'
+    )
+
+
+def _require_project_effect_status(
+    root: ET.Element,
+    svg_path: Path | str,
+) -> None:
+    """Reject source effects that the importer cannot map without distortion."""
+    errors = project_effect_status_errors(root)
+    if not errors:
+        return
+    preview = '; '.join(errors[:8])
+    suffix = '' if len(errors) <= 8 else f'; +{len(errors) - 8} more'
+    raise SvgNativeConversionError(
+        f'{Path(svg_path).name}: unsupported imported PPTX effect(s): '
         f'{preview}{suffix}'
     )
 
@@ -348,20 +439,8 @@ def parse_transform(transform_str: str) -> tuple[float, float, float, float, flo
 # compensate for the offset between those two centres.
 def _root_viewport_size(root: ET.Element) -> tuple[float, float]:
     """Return the SVG root viewport size in user units."""
-    view_box = root.get('viewBox')
-    if view_box:
-        raw_parts = re.split(r'[\s,]+', view_box.strip())
-        if len(raw_parts) == 4:
-            try:
-                parts = [float(n) for n in raw_parts]
-            except ValueError:
-                parts = []
-            if parts and parts[2] > 0 and parts[3] > 0:
-                return parts[2], parts[3]
-
-    width = parse_svg_length(root.get('width'), 1280.0)
-    height = parse_svg_length(root.get('height'), 720.0)
-    return max(width, 1.0), max(height, 1.0)
+    viewbox = parse_project_viewbox(root.get('viewBox'))
+    return float(viewbox.width), float(viewbox.height)
 
 
 def _extract_rotate_pivot(transform_str: str) -> tuple[float, float] | None:
@@ -455,15 +534,20 @@ def _require_unchanged_preset_preview(group: ET.Element) -> None:
 def _decode_unchanged_txbody(
     group: ET.Element,
     metadata: ET.Element,
-) -> str | None:
+    *,
+    trust_runtime_snapshot: bool = True,
+) -> tuple[str, bool] | None:
     expected_hash = metadata.get('data-pptx-text-sha256')
     if not expected_hash:
         raise SvgNativeConversionError('txbody metadata requires a text hash')
-    snapshot = group.get(_TXBODY_UNCHANGED_ATTR)
-    if snapshot == '0':
-        return None
-    if snapshot != '1' and svg_text_fingerprint(group) != expected_hash:
-        return None
+    snapshot = (
+        group.get(_TXBODY_UNCHANGED_ATTR)
+        if trust_runtime_snapshot else None
+    )
+    unchanged = snapshot == '1' or (
+        snapshot != '0'
+        and svg_text_fingerprint(group) == expected_hash
+    )
     if metadata.get('data-pptx-encoding') != 'base64':
         raise SvgNativeConversionError('txbody metadata requires base64 encoding')
     try:
@@ -480,7 +564,15 @@ def _decode_unchanged_txbody(
         raise SvgNativeConversionError(
             'txbody metadata must not contain part-local relationship attributes'
         )
-    return decoded
+    if not unchanged:
+        if txbody_has_run_effects(txbody):
+            raise SvgNativeConversionError(
+                'Visible text or typography was edited while the source '
+                'txBody contains run-level effects; export stopped to avoid '
+                'silently discarding those effects'
+            )
+        return None
+    return decoded, txbody_has_run_effects(txbody)
 
 
 def _append_shape_text(
@@ -499,6 +591,57 @@ def _append_shape_text(
         ),
         bounds_emu=shape.bounds_emu,
     )
+
+
+def preserved_native_text_body(
+    group: ET.Element,
+    *,
+    trust_runtime_snapshot: bool = True,
+) -> tuple[ET.Element, str] | None:
+    """Return the geometry carrier and unchanged native text body, if usable."""
+    metadata = _txbody_metadata(group)
+    logical_text_shape = (
+        group.get('data-pptx-object') == 'shape'
+        and (
+            group.get('data-pptx-prst') is not None
+            or group.get('data-pptx-geometry-kind') == 'custom'
+        )
+        and metadata is not None
+    )
+    if not logical_text_shape:
+        return None
+    decoded_text = _decode_unchanged_txbody(
+        group,
+        metadata,
+        trust_runtime_snapshot=trust_runtime_snapshot,
+    )
+    carrier_children = [
+        child for child in group
+        if child.get('data-pptx-part') == 'geometry'
+    ]
+    allowed_parts = {
+        'geometry',
+        'geometry-detail',
+        'geometry-preview',
+        'txbody',
+    }
+    has_foreign_visual = any(
+        child.tag.replace(f'{{{SVG_NS}}}', '') not in {'text', 'metadata'}
+        and child.get('data-pptx-part') not in allowed_parts
+        for child in group
+    )
+    if decoded_text is None:
+        return None
+    native_text, has_run_effects = decoded_text
+    if len(carrier_children) != 1 or has_foreign_visual:
+        if has_run_effects:
+            raise SvgNativeConversionError(
+                'The source txBody contains run-level effects but cannot be '
+                'restored as one native text shape; export stopped to avoid '
+                'silently discarding those effects'
+            )
+        return None
+    return carrier_children[0], native_text
 
 
 # ---------------------------------------------------------------------------
@@ -532,7 +675,7 @@ def convert_g(elem: ET.Element, ctx: ConvertContext) -> ShapeResult | None:
     if local_opacity is None:
         local_opacity = 1.0
 
-    elem_id = elem.get('id')
+    elem_id = usable_animation_group_id(elem.get('id'))
     semantic_role = elem.get('data-pptx-role')
     placeholder = elem.get('data-pptx-placeholder')
     has_explicit_semantics = (
@@ -559,11 +702,18 @@ def convert_g(elem: ET.Element, ctx: ConvertContext) -> ShapeResult | None:
         child for child in elem
         if child.tag.replace(f'{{{SVG_NS}}}', '') not in _NON_VISUAL_TAGS
     ]
+    unit_axis_reflection = (
+        bool(transform)
+        and _is_unit_axis_reflection(parse_transform_operations(transform))
+    )
     matrix_supported = (
         not native_subtree_active
         and bool(transform)
         and visual_children
-        and supports_full_project_transform(elem)
+        and (
+            supports_full_project_transform(elem)
+            or unit_axis_reflection
+        )
     )
     # A pure ``rotate(angle [cx cy])`` falls through to the fallback path
     # below (children are rect/text/path/etc. that don't consume a full
@@ -623,57 +773,33 @@ def convert_g(elem: ET.Element, ctx: ConvertContext) -> ShapeResult | None:
     ):
         _require_unchanged_preset_preview(elem)
 
-    txbody_meta = _txbody_metadata(elem)
-    logical_text_shape = (
-        elem.get('data-pptx-object') == 'shape'
-        and (
-            elem.get('data-pptx-prst') is not None
-            or elem.get('data-pptx-geometry-kind') == 'custom'
-        )
-        and txbody_meta is not None
-    )
-    if logical_text_shape:
-        carrier_children = [
-            child for child in elem
-            if child.get('data-pptx-part') == 'geometry'
-        ]
-        allowed_parts = {
-            'geometry',
-            'geometry-detail',
-            'geometry-preview',
-            'txbody',
-        }
-        has_foreign_visual = any(
-            child.tag.replace(f'{{{SVG_NS}}}', '') not in {'text', 'metadata'}
-            and child.get('data-pptx-part') not in allowed_parts
-            for child in elem
-        )
-        native_text = _decode_unchanged_txbody(elem, txbody_meta)
-        if len(carrier_children) == 1 and not has_foreign_visual and native_text is not None:
-            geometry_ctx = child_ctx
-            if transform and not native_subtree_active:
-                geometry_ctx = ctx.child(
-                    0, 0, 1.0, 1.0,
-                    transform_matrix=parse_transform_matrix(transform),
-                    filter_id=filter_id,
-                    style_overrides=style_overrides,
-                    opacity_multiplier=local_opacity,
-                )
-            geometry_result = convert_element(carrier_children[0], geometry_ctx)
-            ctx.sync_from_child(geometry_ctx)
-            if geometry_result is None:
-                raise SvgNativeConversionError(
-                    'Logical text shape has no convertible geometry carrier'
-                )
-            restored = _append_shape_text(
-                geometry_result,
-                native_text,
+    preserved_text = preserved_native_text_body(elem)
+    if preserved_text is not None:
+        geometry_carrier, native_text = preserved_text
+        geometry_ctx = child_ctx
+        if transform and not native_subtree_active:
+            geometry_ctx = ctx.child(
+                0, 0, 1.0, 1.0,
+                transform_matrix=parse_transform_matrix(transform),
+                filter_id=filter_id,
+                style_overrides=style_overrides,
+                opacity_multiplier=local_opacity,
             )
-            if should_animate_group and elem_id:
-                shape_match = re.search(r'<p:cNvPr id="(\d+)"', restored.xml)
-                if shape_match:
-                    ctx.anim_targets.append((int(shape_match.group(1)), elem_id))
-            return restored
+        geometry_result = convert_element(geometry_carrier, geometry_ctx)
+        ctx.sync_from_child(geometry_ctx)
+        if geometry_result is None:
+            raise SvgNativeConversionError(
+                'Logical text shape has no convertible geometry carrier'
+            )
+        restored = _append_shape_text(
+            geometry_result,
+            native_text,
+        )
+        if should_animate_group and elem_id:
+            shape_match = re.search(r'<p:cNvPr id="(\d+)"', restored.xml)
+            if shape_match:
+                ctx.anim_targets.append((int(shape_match.group(1)), elem_id))
+        return restored
 
     child_results: list[ShapeResult] = []
     for child in elem:
@@ -831,21 +957,8 @@ _SUPPORTED_VISUAL_CHILD_TAGS = frozenset(('tspan',))
 
 def _parse_svg_canvas(root: ET.Element) -> tuple[float, float, float, float]:
     """Return the SVG canvas as (x, y, width, height) in SVG units."""
-    view_box = root.get('viewBox', '')
-    parts = re.split(r'[\s,]+', view_box.strip()) if view_box else []
-    if len(parts) == 4:
-        try:
-            x, y, w, h = (float(part) for part in parts)
-            if w > 0 and h > 0:
-                return x, y, w, h
-        except ValueError:
-            pass
-    return (
-        0.0,
-        0.0,
-        parse_svg_length(root.get('width'), 0.0),
-        parse_svg_length(root.get('height'), 0.0),
-    )
+    viewbox = parse_project_viewbox(root.get('viewBox'))
+    return 0.0, 0.0, float(viewbox.width), float(viewbox.height)
 
 
 def _is_full_canvas_rect(
@@ -1158,7 +1271,10 @@ def convert_element(elem: ET.Element, ctx: ConvertContext) -> ShapeResult | None
 
 
 def _local_tag(elem: ET.Element) -> str:
-    return elem.tag.split('}', 1)[-1] if isinstance(elem.tag, str) and '}' in elem.tag else str(elem.tag)
+    if not isinstance(elem.tag, str):
+        return str(elem.tag)
+    prefix = f'{{{SVG_NS}}}'
+    return elem.tag[len(prefix):] if elem.tag.startswith(prefix) else elem.tag
 
 
 def collect_unsupported_visuals(
@@ -1280,7 +1396,16 @@ def convert_svg_to_slide_shapes(
     svg_path = Path(svg_path)
     tree = ET.parse(str(svg_path))
     root = tree.getroot()
+    try:
+        parse_project_svg_root(
+            root,
+            context=svg_path.name,
+        )
+    except CanvasContractError as exc:
+        raise SvgNativeConversionError(str(exc)) from exc
     _require_chart_table_marker_attributes(root, svg_path)
+    _require_project_nested_svg_crops(root, svg_path)
+    _require_project_clip_paths(root, svg_path)
     authored_errors = validate_authored_preset_tree(root)
     if authored_errors:
         raise SvgNativeConversionError(
@@ -1348,7 +1473,9 @@ def convert_svg_to_slide_shapes(
     _require_project_paints(root, svg_path)
     _require_project_definitions(root, svg_path)
     _require_project_paint_references(root, svg_path)
+    _require_project_line_end_markers(root, svg_path)
     _require_project_gradients(root, svg_path)
+    _require_project_effect_status(root, svg_path)
     _require_project_filters(root, svg_path)
     _require_project_image_aspect_ratios(root, svg_path)
     _require_project_transforms(root, svg_path)
@@ -1410,6 +1537,9 @@ def convert_svg_to_slide_shapes(
             print(f'  Expanded {expanded_local} local <use href="#..."/> instance(s)')
 
     # Recheck compiler-injected icon/use wrappers and cloned definition trees.
+    _require_project_nested_svg_crops(root, svg_path)
+    _require_project_images(root, svg_path)
+    _require_project_clip_paths(root, svg_path)
     _require_project_text_properties(root, svg_path)
     _require_project_stroke_styles(root, svg_path)
     _require_project_opacities(root, svg_path)
@@ -1417,6 +1547,7 @@ def convert_svg_to_slide_shapes(
     _require_project_definitions(root, svg_path)
     _require_project_paint_references(root, svg_path)
     _require_project_gradients(root, svg_path)
+    _require_project_effect_status(root, svg_path)
     _require_project_filters(root, svg_path)
     _require_project_image_aspect_ratios(root, svg_path)
     _require_project_transforms(root, svg_path)

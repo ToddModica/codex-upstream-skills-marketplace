@@ -32,6 +32,23 @@ except ImportError:
     CANVAS_FORMATS = {}
 
 try:
+    from pptx_effects import (
+        EFFECT_REASON_ATTR as _EFFECT_REASON_ATTR,
+        EFFECT_STATUS_ATTR as _EFFECT_STATUS_ATTR,
+        project_effect_status_errors as _project_effect_status_errors,
+    )
+except ImportError:
+    _EFFECT_REASON_ATTR = 'data-pptx-effect-reason'
+    _EFFECT_STATUS_ATTR = 'data-pptx-effect-status'
+    _project_effect_status_errors = None
+
+from svg_to_pptx.canvas_contract import (
+    CanvasContractError,
+    parse_project_svg_root,
+    parse_project_viewbox,
+)
+
+try:
     from update_spec import parse_lock as _parse_spec_lock
 except ImportError:
     _parse_spec_lock = None  # spec_lock drift check will be skipped
@@ -39,6 +56,7 @@ except ImportError:
 try:
     from svg_to_pptx.animation_config import (
         load_animation_config as _load_animation_config,
+        usable_animation_group_id as _usable_animation_group_id,
         validate_animation_config as _validate_animation_config,
         validate_animation_config_errors as _validate_animation_config_errors,
         validate_transition_config as _validate_transition_config,
@@ -49,6 +67,9 @@ except ImportError as exc:
     _validate_animation_config_errors = None
     _validate_transition_config = None
     _animation_config_import_error = str(exc)
+
+    def _usable_animation_group_id(raw: str | None) -> str | None:
+        return raw if raw and raw.strip() else None
 else:
     _animation_config_import_error = None
 
@@ -60,6 +81,8 @@ try:
         PROJECT_OPACITY_PROPERTIES as _OPACITY_PROPERTIES,
         PROJECT_PAINT_PROPERTIES as _PAINT_PROPERTIES,
         PROJECT_PERCENTAGE_OPACITY_PROPERTIES as _PERCENTAGE_OPACITY_PROPERTIES,
+        detect_text_lang as _detect_text_lang,
+        estimate_text_cluster_widths as _estimate_text_cluster_widths,
         format_project_geometry_length as _format_project_geometry_length,
         format_project_image_aspect_ratio as _format_project_image_aspect_ratio,
         format_project_opacity as _format_project_opacity,
@@ -91,12 +114,15 @@ try:
         project_filter_errors as _project_filter_errors,
         project_gradient_errors as _project_gradient_errors,
         project_image_aspect_ratio_errors as _project_image_aspect_ratio_errors,
+        project_marker_errors as _project_marker_errors,
         project_opacity_errors as _project_opacity_errors,
         project_paint_errors as _project_paint_errors,
         project_paint_reference_errors as _project_paint_reference_errors,
         project_stroke_style_errors as _project_stroke_style_errors,
         project_transform_errors as _project_transform_errors,
         rect_to_dml_xfrm as _rect_to_dml_xfrm,
+        split_project_text_clusters as _split_project_text_clusters,
+        transform_point as _transform_point,
         validate_dml_shape_matrix as _validate_dml_shape_matrix,
     )
 except ImportError:
@@ -106,6 +132,8 @@ except ImportError:
     _OPACITY_PROPERTIES = None
     _PAINT_PROPERTIES = None
     _PERCENTAGE_OPACITY_PROPERTIES = None
+    _detect_text_lang = None
+    _estimate_text_cluster_widths = None
     _format_project_geometry_length = None
     _format_project_image_aspect_ratio = None
     _format_project_opacity = None
@@ -137,12 +165,15 @@ except ImportError:
     _project_filter_errors = None
     _project_gradient_errors = None
     _project_image_aspect_ratio_errors = None
+    _project_marker_errors = None
     _project_opacity_errors = None
     _project_paint_errors = None
     _project_paint_reference_errors = None
     _project_stroke_style_errors = None
     _project_transform_errors = None
     _rect_to_dml_xfrm = None
+    _split_project_text_clusters = None
+    _transform_point = None
     _validate_dml_shape_matrix = None
 
 try:
@@ -160,24 +191,52 @@ except ImportError:
 
 try:
     from svg_to_pptx.drawingml.converter import (
+        SvgNativeConversionError as _SvgNativeConversionError,
         collect_unsupported_visuals as _collect_unsupported_visuals,
+        preserved_native_text_body as _preserved_native_text_body,
     )
 except ImportError:
+    _SvgNativeConversionError = None
     _collect_unsupported_visuals = None
+    _preserved_native_text_body = None
 
 try:
     from svg_to_pptx.drawingml.elements import (
+        drawingml_text_frame_width_emu as _drawingml_text_frame_width_emu,
+        estimate_single_line_text_frame_width as _estimate_single_line_text_frame_width,
+        project_clip_path_errors as _project_clip_path_errors,
+        project_image_errors as _project_image_errors,
+        project_nested_svg_crop_errors as _project_nested_svg_crop_errors,
+        validate_single_line_text_run_advances as _validate_single_line_text_run_advances,
         validate_preset_geometry_metadata as _validate_preset_geometry_metadata,
     )
 except ImportError:
+    _drawingml_text_frame_width_emu = None
+    _estimate_single_line_text_frame_width = None
+    _project_clip_path_errors = None
+    _project_image_errors = None
+    _project_nested_svg_crop_errors = None
+    _validate_single_line_text_run_advances = None
     _validate_preset_geometry_metadata = None
 
 try:
     from svg_to_pptx.drawingml.text_properties import (
+        normalize_project_text_segments as _normalize_project_text_segments,
+        parse_project_font_weight as _parse_project_font_weight,
+        parse_project_text_anchor as _parse_project_text_anchor,
         project_text_property_diagnostics as _project_text_property_diagnostics,
+        resolve_project_xml_space as _resolve_project_xml_space,
+        resolve_project_font_sizes as _resolve_project_font_sizes,
+        resolve_project_letter_spacings as _resolve_project_letter_spacings,
     )
 except ImportError:
+    _normalize_project_text_segments = None
+    _parse_project_font_weight = None
+    _parse_project_text_anchor = None
     _project_text_property_diagnostics = None
+    _resolve_project_xml_space = None
+    _resolve_project_font_sizes = None
+    _resolve_project_letter_spacings = None
 
 try:
     from pptx_to_svg.preset_authoring import (
@@ -249,6 +308,7 @@ except ImportError:
 try:
     from svg_to_pptx.semantic_markers import (
         SEMANTIC_ATTRS as _SEMANTIC_ATTRS,
+        is_static_page_frame as _is_static_page_frame,
         validate_semantic_markers as _validate_semantic_markers,
     )
 except ImportError:
@@ -256,6 +316,7 @@ except ImportError:
         'data-pptx-page-role',
         'data-pptx-role',
     })
+    _is_static_page_frame = None
     _validate_semantic_markers = None
 
 try:
@@ -277,6 +338,13 @@ except ImportError:
     _UseExpansionError = None
     _expand_local_use_references = None
     _validate_local_use_references = None
+
+try:
+    from svg_to_pptx.tspan_flattener import (
+        flatten_positional_tspans as _flatten_positional_tspans,
+    )
+except ImportError:
+    _flatten_positional_tspans = None
 
 try:
     from svg_to_pptx.pptx_package.template_structure import (
@@ -333,14 +401,12 @@ try:
         icon_search_dirs_for_svg as _icon_search_dirs_for_svg,
         project_root_for_svg_path as _project_root_for_svg_path,
         resolve_external_image_reference as _resolve_external_image_reference,
-        unresolved_external_image_reference_path as _unresolved_external_image_reference_path,
     )
 except ImportError:
     _SVG_WORK_DIR_NAMES = frozenset()
     _icon_search_dirs_for_svg = None
     _project_root_for_svg_path = None
     _resolve_external_image_reference = None
-    _unresolved_external_image_reference_path = None
 
 
 HEX_VALUE_RE = re.compile(
@@ -380,8 +446,13 @@ _PPTX_ROOT_STRUCTURE_ATTRS = (
     'data-pptx-layout',
     'data-pptx-layout-name',
 )
+_PPTX_ROOT_VISIBILITY_ATTRS = (
+    'data-pptx-show-master-shapes',
+    'data-pptx-show-inherited-shapes',
+)
 _PPTX_STRUCTURE_ATTRS = frozenset({
     *_PPTX_ROOT_STRUCTURE_ATTRS,
+    *_PPTX_ROOT_VISIBILITY_ATTRS,
     'data-pptx-layer',
     'data-pptx-layout-kind',
     'data-pptx-placeholder',
@@ -401,7 +472,6 @@ _PPTX_STRUCTURE_SECTION_RE = re.compile(
 _PPTX_STRUCTURE_MODE_RE = re.compile(
     r"(?m)^-[ \t]+mode[ \t]*:[ \t]*([^\s#]+)[ \t]*(?:#.*)?$"
 )
-_CLIP_SHAPE_TAGS = frozenset({'circle', 'ellipse', 'rect', 'path', 'polygon'})
 _SUPPORTED_INLINE_STYLE_PROPERTIES = frozenset({
     'cx', 'cy', 'fill', 'fill-opacity', 'filter', 'flood-color',
     'flood-opacity', 'font-family', 'font-size', 'font-style', 'font-weight',
@@ -416,18 +486,6 @@ _BAKE_REQUIRED_VISUAL_PROPERTIES = frozenset({
     'isolation',
     'mix-blend-mode',
 })
-_NUMBER_TOKEN = r'[+-]?(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][+-]?\d+)?'
-_POINT_TOKEN = rf'{_NUMBER_TOKEN}(?:\s*,\s*|\s+){_NUMBER_TOKEN}'
-_MARKER_TRIANGLE_PATH_RE = re.compile(
-    rf'^\s*M\s*{_POINT_TOKEN}(?:\s*L\s*{_POINT_TOKEN}){{2}}\s*Z\s*$',
-    re.IGNORECASE,
-)
-_MARKER_DIAMOND_PATH_RE = re.compile(
-    rf'^\s*M\s*{_POINT_TOKEN}(?:\s*L\s*{_POINT_TOKEN}){{3}}\s*Z\s*$',
-    re.IGNORECASE,
-)
-
-
 def _compact_preset_ancestor_paint(
     root: ET.Element,
 ) -> list[tuple[str, tuple[str, ...]]]:
@@ -582,6 +640,12 @@ def _local_pptx_structure_errors(
                 f"{svg_path.name}: structured SVG root is missing "
                 + ', '.join(missing)
             )
+    for attr in _PPTX_ROOT_VISIBILITY_ATTRS:
+        raw = root.get(attr)
+        if raw is not None and raw not in {'true', 'false'}:
+            errors.append(
+                f"{svg_path.name}: root {attr} must be exactly 'true' or 'false'"
+            )
 
     parent_by_id = {
         id(child): parent
@@ -595,7 +659,10 @@ def _local_pptx_structure_errors(
 
         if elem is not root:
             nested_root_attrs = [
-                attr for attr in _PPTX_ROOT_STRUCTURE_ATTRS
+                attr for attr in (
+                    *_PPTX_ROOT_STRUCTURE_ATTRS,
+                    *_PPTX_ROOT_VISIBILITY_ATTRS,
+                )
                 if elem.get(attr) is not None
             ]
             if nested_root_attrs:
@@ -862,6 +929,27 @@ def _declared_template_structure_mode(target_path: Path) -> str | None:
     return match.group(1).lower() if match else None
 
 
+def _declared_template_canvas_viewbox(target_path: Path) -> str | None:
+    """Return a template design spec's locked root-canvas value."""
+    directory = target_path.parent if target_path.is_file() else target_path
+    spec_path = directory / 'design_spec.md'
+    try:
+        text = spec_path.read_text(encoding='utf-8')
+    except OSError:
+        return None
+    if not text.startswith('---\n'):
+        return None
+    end = text.find('\n---\n', 4)
+    if end == -1:
+        return None
+    match = re.search(
+        r'^canvas_viewbox:\s*["\']?([^"\'\r\n]+?)["\']?\s*$',
+        text[4:end],
+        re.MULTILINE,
+    )
+    return match.group(1).strip() if match else None
+
+
 def _template_structure_checks_enabled(target_path: Path) -> bool:
     """Return whether positive structure checks apply to this template."""
     return _declared_template_structure_mode(target_path) == 'structured'
@@ -901,20 +989,6 @@ def _element_label(elem: ET.Element) -> str:
     return f'<{tag} id="{elem_id}">' if elem_id else f'<{tag}>'
 
 
-def _marker_polygon_vertex_count(raw: str) -> int | None:
-    """Return the number of finite polygon vertices, or ``None``."""
-    tokens = [token for token in re.split(r'[\s,]+', raw.strip()) if token]
-    if not tokens or len(tokens) % 2:
-        return None
-    try:
-        values = [float(token) for token in tokens]
-    except ValueError:
-        return None
-    if not all(math.isfinite(value) for value in values):
-        return None
-    return len(values) // 2
-
-
 def _effective_presentation_value(
     elem: ET.Element,
     name: str,
@@ -938,16 +1012,11 @@ def _effective_presentation_value(
 
 def _parse_viewbox_values(viewbox: str) -> Tuple[float, float, float, float] | None:
     """Parse a root viewBox into four numeric values."""
-    parts = re.split(r'[\s,]+', viewbox.strip())
-    if len(parts) != 4:
-        return None
     try:
-        values = tuple(float(part) for part in parts)
-    except ValueError:
+        parsed = parse_project_viewbox(viewbox)
+    except CanvasContractError:
         return None
-    if values[2] <= 0 or values[3] <= 0:
-        return None
-    return values
+    return 0.0, 0.0, float(parsed.width), float(parsed.height)
 
 
 def _parse_placeholders_fallback(block: str) -> Dict[str, Tuple[str, ...]]:
@@ -1088,7 +1157,14 @@ class SVGQualityChecker:
         self._pptx_structure_issues: List[Tuple[str, str]] = []
         self._aggregate_counts_applied = False
 
-    def check_file(self, svg_file: str, expected_format: str = None) -> Dict:
+    def check_file(
+        self,
+        svg_file: str,
+        expected_format: str = None,
+        *,
+        expected_viewbox: str | None = None,
+        expected_viewbox_label: str = "expected canvas",
+    ) -> Dict:
         """
         Check a single SVG file
 
@@ -1130,7 +1206,18 @@ class SVGQualityChecker:
             root = self._parse_xml_root(content, result)
             if root is not None:
                 # 1. Check viewBox
-                self._check_viewbox(root, result, expected_format)
+                self._check_viewbox(
+                    root,
+                    svg_path,
+                    result,
+                    expected_format,
+                    expected_viewbox=expected_viewbox,
+                    expected_viewbox_label=expected_viewbox_label,
+                )
+
+                # 1a. Validate exact importer transport before compatible
+                # inline geometry is materialized on the shared tree.
+                self._check_nested_svg_crop_contract(root, result)
 
                 # 2. Check forbidden elements
                 self._check_forbidden_elements(content, root, result)
@@ -1142,6 +1229,7 @@ class SVGQualityChecker:
                 self._check_stroke_style_values(root, result)
 
                 # 2c. Validate image fit/crop grammar and mappings.
+                self._check_image_contract(root, svg_path, result)
                 self._check_image_aspect_ratio_values(root, result)
 
                 # 2d. Validate complete path-data and point-list grammar.
@@ -1157,6 +1245,7 @@ class SVGQualityChecker:
                 # conditional definition interfaces before export.
                 self._check_authoring_property_contract(root, result)
                 self._check_text_property_contract(root, result)
+                self._check_preserved_txbody_contract(root, result)
                 self._check_paint_compatibility(root, result)
                 self._check_reference_spelling(root, result)
                 self._check_definition_contract(root, result)
@@ -1165,6 +1254,7 @@ class SVGQualityChecker:
                 self._check_clip_path_contract(root, result)
 
                 # 2h. Validate the supported shadow/glow filter interface.
+                self._check_imported_effect_status(root, result)
                 self._check_filter_effects(root, result)
 
                 # 2i. Validate gradient definitions, stops, and coordinates.
@@ -1193,7 +1283,7 @@ class SVGQualityChecker:
                 self._check_preset_geometry_transforms(root, result)
 
                 # 8. Check object-level animation anchor quality.
-                self._check_animation_group_ids(root, result)
+                self._check_animation_group_ids(root, svg_path, result)
 
                 # 8b. Check <pattern> elements declare a PPTX preset.
                 self._check_pattern_fills(root, result)
@@ -1276,44 +1366,80 @@ class SVGQualityChecker:
             )
             return None
 
-    def _check_viewbox(self, root: ET.Element, result: Dict, expected_format: str = None):
-        """Check viewBox attribute"""
+    def _check_viewbox(
+        self,
+        root: ET.Element,
+        svg_path: Path,
+        result: Dict,
+        expected_format: str = None,
+        *,
+        expected_viewbox: str | None = None,
+        expected_viewbox_label: str = "expected canvas",
+    ):
+        """Validate the root page canvas and its project-level locks."""
         viewbox = root.get('viewBox')
-        if not viewbox:
-            result['errors'].append("Missing viewBox attribute")
-            return
-
-        result['info']['viewbox'] = viewbox
-
-        parts = re.split(r'[\s,]+', viewbox.strip())
-        if len(parts) != 4:
-            result['errors'].append(
-                f"viewBox must contain exactly four numeric values; got: {viewbox}"
-            )
-            return
         try:
-            values = tuple(float(part) for part in parts)
-        except ValueError:
-            result['errors'].append(
-                f"viewBox must contain exactly four numeric values; got: {viewbox}"
+            parsed = parse_project_svg_root(
+                root,
+                context=svg_path.name,
             )
+        except CanvasContractError as exc:
+            result['errors'].append(str(exc))
             return
-        if values[2] <= 0 or values[3] <= 0:
-            result['errors'].append(
-                f"viewBox width/height must be positive; got: {viewbox}"
+        assert viewbox is not None
+        result['info']['viewbox'] = viewbox
+        if viewbox != parsed.canonical or not parsed.has_integer_dimensions:
+            if parsed.has_integer_dimensions:
+                recommendation = f'write viewBox="{parsed.canonical}"'
+            else:
+                recommendation = (
+                    "fractional dimensions are reserved for compatible imported "
+                    "custom slide sizes; new authoring uses integer pixels"
+                )
+            result['warnings'].append(
+                f"Compatible non-canonical root viewBox {viewbox!r}; {recommendation}."
             )
-            return
 
-        if values[0] != 0 or values[1] != 0 or any(not part.isdigit() for part in parts):
-            result['warnings'].append(f"Unusual viewBox format: {viewbox}")
+        contracts: list[tuple[str, str]] = []
+        if expected_viewbox is not None:
+            contracts.append((expected_viewbox_label, expected_viewbox))
+        elif not self.template_mode:
+            lock = self._get_spec_lock(svg_path)
+            if lock is not None and 'canvas' in lock:
+                locked_viewbox = lock.get('canvas', {}).get('viewBox')
+                if not locked_viewbox:
+                    result['errors'].append(
+                        "spec_lock.md canvas section must declare viewBox"
+                    )
+                else:
+                    contracts.append(("spec_lock canvas", locked_viewbox))
 
-        # Check if it matches expected format
         if expected_format and expected_format in CANVAS_FORMATS:
-            expected_viewbox = CANVAS_FORMATS[expected_format]['viewbox']
-            expected_values = _parse_viewbox_values(expected_viewbox)
-            if expected_values and values != expected_values:
+            contracts.append((
+                f"canvas format {expected_format!r}",
+                CANVAS_FORMATS[expected_format]['viewbox'],
+            ))
+        elif expected_format:
+            result['errors'].append(f"Unsupported canvas format: {expected_format}")
+
+        seen_contracts: set[tuple[str, str]] = set()
+        for label, raw_expected in contracts:
+            contract_key = (label, raw_expected)
+            if contract_key in seen_contracts:
+                continue
+            seen_contracts.add(contract_key)
+            try:
+                expected = parse_project_viewbox(
+                    raw_expected,
+                    context=f"{label} viewBox",
+                )
+            except CanvasContractError as exc:
+                result['errors'].append(str(exc))
+                continue
+            if parsed != expected:
                 result['errors'].append(
-                    f"viewBox mismatch: expected '{expected_viewbox}', got '{viewbox}'"
+                    f"viewBox mismatch: {label} requires '{expected.canonical}', "
+                    f"got '{parsed.canonical}'"
                 )
 
     def _check_forbidden_elements(self, content: str, root: ET.Element, result: Dict):
@@ -1739,130 +1865,13 @@ class SVGQualityChecker:
         result: Dict,
     ) -> None:
         """Validate marker references against the native line-end contract."""
-        definitions, _duplicates = _direct_defs_index(root)
-        parent_by_id = {
-            id(child): parent
-            for parent in root.iter()
-            for child in list(parent)
-        }
-        issues: set[str] = set()
-        checked_markers: set[str] = set()
-
-        for elem in root.iter():
-            for attr in ('marker-start', 'marker-end'):
-                raw_ref = elem.get(attr)
-                if raw_ref is None or raw_ref.strip().lower() == 'none':
-                    continue
-                label = _element_label(elem)
-                tag = _local_name(elem).lower()
-                if tag not in {'line', 'path'}:
-                    issues.add(
-                        f"{label} {attr} is allowed only on <line> or <path>"
-                    )
-                match = re.fullmatch(r'url\(#([^)]+)\)', raw_ref.strip())
-                if match is None:
-                    issues.add(
-                        f"{label} {attr} must be an exact local url(#id) reference; "
-                        f"got {raw_ref!r}"
-                    )
-                    continue
-                marker_id = match.group(1)
-                marker = definitions.get(marker_id)
-                if marker is None or _local_name(marker) != 'marker':
-                    issues.add(
-                        f"{label} {attr}=url(#{marker_id}) has no matching direct "
-                        f"<defs><marker id=\"{marker_id}\"> definition"
-                    )
-                    continue
-
-                visual_children = [
-                    child for child in list(marker)
-                    if _local_name(child) not in _NON_VISUAL_SVG_TAGS
-                ]
-                shape = visual_children[0] if len(visual_children) == 1 else None
-                if marker_id not in checked_markers:
-                    checked_markers.add(marker_id)
-                    marker_label = f'<marker id="{marker_id}">'
-                    if marker.get('orient') != 'auto':
-                        issues.add(f'{marker_label} requires orient="auto"')
-                    marker_units = marker.get('markerUnits', 'strokeWidth')
-                    if marker_units not in {'strokeWidth', 'userSpaceOnUse'}:
-                        issues.add(
-                            f"{marker_label} has unsupported markerUnits={marker_units!r}"
-                        )
-                    for size_attr in ('markerWidth', 'markerHeight'):
-                        raw_size = marker.get(size_attr)
-                        if raw_size is None:
-                            continue
-                        try:
-                            size = float(raw_size)
-                        except ValueError:
-                            size = math.nan
-                        if not math.isfinite(size) or size <= 0:
-                            issues.add(
-                                f"{marker_label} {size_attr} must be a positive "
-                                f"finite number; got {raw_size!r}"
-                            )
-                    if shape is None:
-                        issues.add(
-                            f"{marker_label} must contain exactly one direct "
-                            "triangle/diamond path or polygon, circle, or ellipse"
-                        )
-                    else:
-                        shape_tag = _local_name(shape).lower()
-                        if shape.get('transform'):
-                            issues.add(
-                                f"{marker_label} child <{shape_tag}> cannot use transform"
-                            )
-                        if shape_tag == 'path':
-                            path_data = shape.get('d', '')
-                            if not (
-                                _MARKER_TRIANGLE_PATH_RE.fullmatch(path_data)
-                                or _MARKER_DIAMOND_PATH_RE.fullmatch(path_data)
-                            ):
-                                issues.add(
-                                    f"{marker_label} path must be a closed 3- or "
-                                    "4-vertex path with one explicit M/L command "
-                                    "per vertex"
-                                )
-                        elif shape_tag == 'polygon':
-                            vertex_count = _marker_polygon_vertex_count(
-                                shape.get('points', '')
-                            )
-                            if vertex_count not in {3, 4}:
-                                issues.add(
-                                    f"{marker_label} polygon must contain exactly "
-                                    "3 or 4 finite vertices"
-                                )
-                        elif shape_tag not in {'circle', 'ellipse'}:
-                            issues.add(
-                                f"{marker_label} child <{shape_tag}> has no native "
-                                "line-end mapping"
-                            )
-
-                if shape is None or _parse_export_color is None:
-                    continue
-                stroke_value = _effective_presentation_value(
-                    elem, 'stroke', parent_by_id,
-                )
-                marker_fill = _effective_presentation_value(
-                    shape, 'fill', parent_by_id,
-                ) or '#000000'
-                stroke_color, _stroke_alpha = _parse_export_color(stroke_value or '')
-                fill_color, _fill_alpha = _parse_export_color(marker_fill)
-                if stroke_color is None or fill_color is None:
-                    issues.add(
-                        f"{label} {attr} marker fill and line stroke must both be "
-                        "supported solid colors"
-                    )
-                elif stroke_color != fill_color:
-                    issues.add(
-                        f"{label} {attr}=url(#{marker_id}) marker fill "
-                        f"{marker_fill!r} does not match effective line stroke "
-                        f"{stroke_value!r}"
-                    )
-
-        result['errors'].extend(sorted(issues))
+        if _project_marker_errors is None:
+            result['warnings'].append(
+                'Unable to import the shared marker validator; native export '
+                'will still validate line-end markers.'
+            )
+            return
+        result['errors'].extend(_project_marker_errors(root))
 
     def _check_clip_path_contract(
         self,
@@ -1870,69 +1879,13 @@ class SVGQualityChecker:
         result: Dict,
     ) -> None:
         """Validate image clip paths against the native picture geometry mapping."""
-        definitions, _duplicates = _direct_defs_index(root)
-        issues: set[str] = set()
-        checked_clips: set[str] = set()
-        for elem in root.iter():
-            raw_ref = elem.get('clip-path')
-            if raw_ref is None or raw_ref.strip().lower() == 'none':
-                continue
-            label = _element_label(elem)
-            tag = _local_name(elem).lower()
-            is_imported_crop = tag == 'svg' and elem.get('data-pptx-crop') == '1'
-            if tag != 'image' and not is_imported_crop:
-                issues.add(
-                    f"{label} clip-path is allowed only on <image> or an imported "
-                    "data-pptx-crop=\"1\" wrapper"
-                )
-            match = re.fullmatch(r'url\(#([^)]+)\)', raw_ref.strip())
-            if match is None:
-                issues.add(
-                    f"{label} clip-path must be an exact local url(#id) "
-                    f"reference; got {raw_ref!r}"
-                )
-                continue
-            clip_id = match.group(1)
-            clip = definitions.get(clip_id)
-            if clip is None or _local_name(clip) != 'clipPath':
-                issues.add(
-                    f"{label} clip-path=url(#{clip_id}) has no matching direct "
-                    f"<defs><clipPath id=\"{clip_id}\"> definition"
-                )
-                continue
-            if clip_id in checked_clips:
-                continue
-            checked_clips.add(clip_id)
-            clip_label = f'<clipPath id="{clip_id}">'
-            clip_units = clip.get('clipPathUnits', 'userSpaceOnUse')
-            if clip_units not in {'userSpaceOnUse', 'objectBoundingBox'}:
-                issues.add(
-                    f"{clip_label} has unsupported clipPathUnits={clip_units!r}"
-                )
-            if clip.get('transform'):
-                issues.add(f"{clip_label} cannot use transform")
-            visual_children = [
-                child for child in list(clip)
-                if _local_name(child) not in _NON_VISUAL_SVG_TAGS
-            ]
-            if len(visual_children) != 1:
-                issues.add(
-                    f"{clip_label} must contain exactly one direct supported shape"
-                )
-                continue
-            shape = visual_children[0]
-            shape_tag = _local_name(shape).lower()
-            if shape_tag not in _CLIP_SHAPE_TAGS:
-                issues.add(
-                    f"{clip_label} child <{shape_tag}> is unsupported; use "
-                    "circle, ellipse, rect, path, or polygon"
-                )
-            if shape.get('transform'):
-                issues.add(
-                    f"{clip_label} child <{shape_tag}> cannot use transform"
-                )
-
-        result['errors'].extend(sorted(issues))
+        if _project_clip_path_errors is None:
+            result['errors'].append(
+                'Unable to import the clip-path validator; cannot verify '
+                'native picture geometry references'
+            )
+            return
+        result['errors'].extend(_project_clip_path_errors(root))
 
     def _check_filter_effects(self, root: ET.Element, result: Dict) -> None:
         """Validate filters against the native shadow/glow approximation."""
@@ -1943,6 +1896,25 @@ class SVGQualityChecker:
             )
             return
         result['errors'].extend(_project_filter_errors(root))
+
+    def _check_imported_effect_status(
+        self,
+        root: ET.Element,
+        result: Dict,
+    ) -> None:
+        """Reject source PPTX effects that have no faithful SVG mapping."""
+        if _project_effect_status_errors is None:
+            if any(
+                elem.get(_EFFECT_STATUS_ATTR) is not None
+                or elem.get(_EFFECT_REASON_ATTR) is not None
+                for elem in root.iter()
+            ):
+                result['errors'].append(
+                    'Unable to import the PPTX effect-status validator; '
+                    'cannot verify imported effect fidelity'
+                )
+            return
+        result['errors'].extend(_project_effect_status_errors(root))
 
     def _check_gradient_interfaces(self, root: ET.Element, result: Dict) -> None:
         """Validate the normalized native gradient authoring interface."""
@@ -2168,6 +2140,41 @@ class SVGQualityChecker:
                 f'preserveAspectRatio="{normalized}". No change is required '
                 "for export."
             )
+
+    def _check_nested_svg_crop_contract(
+        self,
+        root: ET.Element,
+        result: Dict,
+    ) -> None:
+        """Reserve nested SVG for the imported picture-crop transport."""
+        if _project_nested_svg_crop_errors is None:
+            result['errors'].append(
+                'Unable to import the nested SVG crop validator; cannot '
+                'verify imported picture-crop wrappers'
+            )
+            return
+        result['errors'].extend(_project_nested_svg_crop_errors(root))
+
+    def _check_image_contract(
+        self,
+        root: ET.Element,
+        svg_path: Path,
+        result: Dict,
+    ) -> None:
+        """Validate picture frames, references, and bytes before export."""
+        if _project_image_errors is None:
+            result['errors'].append(
+                'Unable to import the image validator; cannot verify picture '
+                'frames or media'
+            )
+            return
+        result['errors'].extend(
+            _project_image_errors(
+                root,
+                svg_path.parent,
+                allow_template_placeholders=self.template_mode,
+            )
+        )
 
     def _check_freeform_geometry_values(
         self,
@@ -2430,14 +2437,502 @@ class SVGQualityChecker:
         result['info']['text_elements'] = text_count
         result['info']['tspan_elements'] = tspan_count
 
-        # Check for overly long single-line text (may need wrapping)
-        text_matches = re.findall(r'<text[^>]*>([^<]{100,})</text>', content)
-        if text_matches:
-            result['warnings'].append(
-                f"Detected {len(text_matches)} potentially overly long single-line text(s) (consider using tspan for wrapping)"
+        self._check_text_output_geometry(root, result)
+        self._check_single_line_text_bounds(root, result)
+        self._check_unmergeable_leading_text(root, result)
+
+    @classmethod
+    def _single_line_text_runs(
+        cls,
+        text_el: ET.Element,
+    ) -> List[Tuple[ET.Element, str]] | None:
+        """Return normalized inline runs, or ``None`` for positioned text."""
+        if (
+            _normalize_project_text_segments is None
+            or _resolve_project_xml_space is None
+        ):
+            return None
+        raw_runs: List[Tuple[ET.Element, str, str]] = []
+
+        def append_run(owner: ET.Element, raw: str, xml_space: str) -> None:
+            if raw:
+                raw_runs.append((owner, xml_space, raw))
+
+        def collect(container: ET.Element, inherited_xml_space: str) -> bool:
+            try:
+                xml_space = _resolve_project_xml_space(
+                    container,
+                    inherited_xml_space,
+                )
+            except ValueError:
+                return False
+            if container.text:
+                append_run(container, container.text, xml_space)
+            for child in list(container):
+                if not cls._is_tspan(child):
+                    return False
+                if any(child.get(name) is not None for name in ('x', 'y', 'dx', 'dy')):
+                    return False
+                if any(
+                    name.startswith('data-paragraph-')
+                    for name in child.attrib
+                ):
+                    return False
+                if not collect(child, xml_space):
+                    return False
+                if child.tail:
+                    append_run(container, child.tail, xml_space)
+            return True
+
+        if not collect(text_el, 'default'):
+            return None
+        normalized = _normalize_project_text_segments([
+            (xml_space, raw)
+            for _owner, xml_space, raw in raw_runs
+        ])
+        return [
+            (raw_runs[index][0], text)
+            for index, text in normalized
+        ]
+
+    @staticmethod
+    def _unchanged_txbody_group_ids(
+        root: ET.Element,
+    ) -> set[int]:
+        """Return imported shape groups whose original text body will survive."""
+        if _preserved_native_text_body is None:
+            return set()
+        unchanged: set[int] = set()
+        for group in root.iter(f'{{{SVG_NS}}}g'):
+            try:
+                if _preserved_native_text_body(
+                    group,
+                    trust_runtime_snapshot=False,
+                ) is not None:
+                    unchanged.add(id(group))
+            except _SvgNativeConversionError:
+                # The dedicated txBody contract check owns the diagnostic.
+                continue
+        return unchanged
+
+    @staticmethod
+    def _check_preserved_txbody_contract(
+        root: ET.Element,
+        result: Dict,
+    ) -> None:
+        """Validate imported txBody payloads independently of text geometry."""
+        if _preserved_native_text_body is None:
+            return
+        errors: set[str] = set()
+        for group in root.iter(f'{{{SVG_NS}}}g'):
+            try:
+                _preserved_native_text_body(
+                    group,
+                    trust_runtime_snapshot=False,
+                )
+            except _SvgNativeConversionError as exc:
+                errors.add(
+                    f'{_element_label(group)} cannot preserve source '
+                    f'txBody: {exc}'
+                )
+        result['errors'].extend(sorted(errors))
+
+    @staticmethod
+    def _has_ancestor_id(
+        elem: ET.Element,
+        parent_by_id: Dict[int, ET.Element],
+        ancestor_ids: set[int],
+    ) -> bool:
+        current = parent_by_id.get(id(elem))
+        while current is not None:
+            if id(current) in ancestor_ids:
+                return True
+            current = parent_by_id.get(id(current))
+        return False
+
+    @classmethod
+    def _resolved_single_line_text_runs(
+        cls,
+        text_el: ET.Element,
+        parent_by_id: Dict[int, ET.Element],
+        font_sizes: Dict[int, float],
+        letter_spacings: Dict[int, float],
+    ) -> List[Dict] | None:
+        """Resolve the same run metrics used by generated text-frame sizing."""
+        source_runs = cls._single_line_text_runs(text_el)
+        if source_runs is None:
+            return None
+        resolved: List[Dict] = []
+        for owner, text in source_runs:
+            raw_weight = (
+                _effective_presentation_value(
+                    owner,
+                    'font-weight',
+                    parent_by_id,
+                )
+                or 'normal'
+            ).strip().lower()
+            weight = _parse_project_font_weight(raw_weight).canonical
+            family = (
+                _effective_presentation_value(
+                    owner,
+                    'font-family',
+                    parent_by_id,
+                )
+                or ''
+            )
+            opacity_chain: List[str] = []
+            current: ET.Element | None = owner
+            while current is not None:
+                style_values = (
+                    _parse_inline_style(current.get('style'))
+                    if _parse_inline_style is not None else {}
+                )
+                raw_opacity = style_values.get('opacity')
+                if raw_opacity is None:
+                    raw_opacity = current.get('opacity')
+                if raw_opacity is not None:
+                    opacity_chain.append(raw_opacity.strip())
+                current = parent_by_id.get(id(current))
+            resolved.append({
+                'owner': owner,
+                'text': text,
+                'font_size': font_sizes[id(owner)],
+                'font_weight': weight,
+                'font_family': family,
+                'letter_spacing': letter_spacings[id(owner)],
+                'font_style': _effective_presentation_value(
+                    owner,
+                    'font-style',
+                    parent_by_id,
+                ) or 'normal',
+                'text_decoration': _effective_presentation_value(
+                    owner,
+                    'text-decoration',
+                    parent_by_id,
+                ) or 'none',
+                'fill_raw': _effective_presentation_value(
+                    owner,
+                    'fill',
+                    parent_by_id,
+                ) or '#000000',
+                'fill_opacity': _effective_presentation_value(
+                    owner,
+                    'fill-opacity',
+                    parent_by_id,
+                ) or '1',
+                'stroke_raw': _effective_presentation_value(
+                    owner,
+                    'stroke',
+                    parent_by_id,
+                ) or 'none',
+                'stroke_width': _effective_presentation_value(
+                    owner,
+                    'stroke-width',
+                    parent_by_id,
+                ) or '1',
+                'stroke_opacity': _effective_presentation_value(
+                    owner,
+                    'stroke-opacity',
+                    parent_by_id,
+                ) or '1',
+                'opacity_chain': tuple(reversed(opacity_chain)),
+            })
+        return cls._coalesce_checker_text_runs(resolved)
+
+    @staticmethod
+    def _coalesce_checker_text_runs(runs: List[Dict]) -> List[Dict]:
+        """Join only runs whose resolved source styles are provably equal."""
+        if _detect_text_lang is None:
+            return runs
+        style_keys = (
+            'font_size',
+            'font_weight',
+            'font_family',
+            'letter_spacing',
+            'font_style',
+            'text_decoration',
+            'fill_raw',
+            'fill_opacity',
+            'stroke_raw',
+            'stroke_width',
+            'stroke_opacity',
+            'opacity_chain',
+        )
+
+        def signature(run: Dict) -> Tuple:
+            return (
+                _detect_text_lang(str(run.get('text', ''))),
+                *(run.get(key) for key in style_keys),
             )
 
-        self._check_unmergeable_leading_text(root, result)
+        merged: List[Dict] = []
+        previous_signature: Tuple | None = None
+        for run in runs:
+            current_signature = signature(run)
+            if merged and current_signature == previous_signature:
+                candidate = {
+                    **merged[-1],
+                    'text': (
+                        str(merged[-1].get('text', ''))
+                        + str(run.get('text', ''))
+                    ),
+                }
+                candidate_signature = signature(candidate)
+                if candidate_signature == previous_signature:
+                    merged[-1] = candidate
+                    previous_signature = candidate_signature
+                    continue
+            merged.append(run)
+            previous_signature = current_signature
+        return merged
+
+    def _check_text_output_geometry(
+        self,
+        root: ET.Element,
+        result: Dict,
+    ) -> None:
+        """Reject measurable run advances or frames with non-positive geometry."""
+        helpers = (
+            _drawingml_text_frame_width_emu,
+            _estimate_single_line_text_frame_width,
+            _parse_project_font_weight,
+            _resolve_project_font_sizes,
+            _resolve_project_letter_spacings,
+            _validate_single_line_text_run_advances,
+        )
+        if any(helper is None for helper in helpers):
+            return
+        try:
+            font_sizes = _resolve_project_font_sizes(root)
+            letter_spacings = _resolve_project_letter_spacings(root, font_sizes)
+        except ValueError:
+            return
+
+        parent_by_id = {
+            id(child): parent
+            for parent in root.iter()
+            for child in list(parent)
+        }
+        unchanged_groups = self._unchanged_txbody_group_ids(root)
+        errors: List[str] = []
+        for text_el in root.iter(f'{{{SVG_NS}}}text'):
+            chain: List[ET.Element] = []
+            current: ET.Element | None = text_el
+            while current is not None:
+                chain.append(current)
+                current = parent_by_id.get(id(current))
+            if any(
+                _local_name(current) in _NON_VISUAL_SVG_TAGS
+                for current in chain
+            ):
+                continue
+            if self._has_ancestor_id(text_el, parent_by_id, unchanged_groups):
+                continue
+            try:
+                runs = self._resolved_single_line_text_runs(
+                    text_el,
+                    parent_by_id,
+                    font_sizes,
+                    letter_spacings,
+                )
+                if not runs:
+                    continue
+                if not ''.join(str(run['text']) for run in runs).strip():
+                    continue
+                text_width = _estimate_single_line_text_frame_width(runs)
+                ext_cx = _drawingml_text_frame_width_emu(
+                    text_width,
+                    font_sizes[id(text_el)],
+                )
+            except (KeyError, TypeError, ValueError):
+                continue
+            if ext_cx < 1:
+                errors.append(
+                    f'{_element_label(text_el)} negative letter-spacing '
+                    'produces a non-positive DrawingML text-frame extent '
+                    f'(cx={ext_cx})'
+                )
+                continue
+            try:
+                _validate_single_line_text_run_advances(runs)
+            except ValueError as exc:
+                errors.append(f'{_element_label(text_el)} {exc}')
+        result['errors'].extend(errors)
+
+    def _check_single_line_text_bounds(
+        self,
+        root: ET.Element,
+        result: Dict,
+    ) -> None:
+        """Warn only when an estimable single line exceeds the viewBox."""
+        helpers = (
+            _drawingml_text_frame_width_emu,
+            _estimate_text_cluster_widths,
+            _estimate_single_line_text_frame_width,
+            _IDENTITY_MATRIX,
+            _matrix_multiply,
+            _parse_project_font_weight,
+            _parse_project_geometry_length,
+            _parse_project_text_anchor,
+            _parse_transform_matrix,
+            _resolve_project_font_sizes,
+            _resolve_project_letter_spacings,
+            _split_project_text_clusters,
+            _transform_point,
+        )
+        if any(helper is None for helper in helpers):
+            return
+
+        viewbox = _parse_viewbox_values(root.get('viewBox') or '')
+        if viewbox is None:
+            return
+        min_x, _min_y, width, _height = viewbox
+        max_x = min_x + width
+        try:
+            font_sizes = _resolve_project_font_sizes(root)
+            letter_spacings = _resolve_project_letter_spacings(root, font_sizes)
+        except ValueError:
+            return
+
+        parent_by_id = {
+            id(child): parent
+            for parent in root.iter()
+            for child in list(parent)
+        }
+        unchanged_groups = self._unchanged_txbody_group_ids(root)
+        issues: List[str] = []
+        for text_el in root.iter(f'{{{SVG_NS}}}text'):
+            chain: List[ET.Element] = []
+            current: ET.Element | None = text_el
+            while current is not None:
+                chain.append(current)
+                current = parent_by_id.get(id(current))
+            if any(
+                _local_name(current) in _NON_VISUAL_SVG_TAGS
+                for current in chain
+            ):
+                continue
+            if text_el.get('data-paragraph-line-height') is not None:
+                continue
+            if self._has_ancestor_id(text_el, parent_by_id, unchanged_groups):
+                continue
+
+            try:
+                runs = self._resolved_single_line_text_runs(
+                    text_el,
+                    parent_by_id,
+                    font_sizes,
+                    letter_spacings,
+                )
+            except (KeyError, TypeError, ValueError):
+                continue
+            if not runs:
+                continue
+            visible_text = ''.join(str(run['text']) for run in runs)
+            if '{{' in visible_text and '}}' in visible_text:
+                continue
+
+            try:
+                x = _parse_project_geometry_length(text_el.get('x') or '0', 'x')
+                y = _parse_project_geometry_length(text_el.get('y') or '0', 'y')
+                frame_width = _estimate_single_line_text_frame_width(runs)
+                if _drawingml_text_frame_width_emu(
+                    frame_width,
+                    font_sizes[id(text_el)],
+                ) < 1:
+                    continue
+                text_advance = 0.0
+                text_left = math.inf
+                text_right = -math.inf
+                for run in runs:
+                    text = str(run['text'])
+                    weight = str(run['font_weight'])
+                    font_size = float(run['font_size'])
+                    spacing = float(run['letter_spacing'])
+                    clusters = _split_project_text_clusters(text)
+                    cluster_widths = _estimate_text_cluster_widths(
+                        text,
+                        font_size,
+                        weight,
+                    )
+                    for index, (cluster, cluster_width) in enumerate(zip(
+                        clusters,
+                        cluster_widths,
+                    )):
+                        if not cluster.isspace():
+                            text_left = min(text_left, text_advance)
+                            text_right = max(
+                                text_right,
+                                text_advance + cluster_width,
+                            )
+                        text_advance += cluster_width
+                        if index < len(clusters) - 1:
+                            text_advance += spacing
+            except (KeyError, TypeError, ValueError):
+                continue
+            if not all(math.isfinite(value) for value in (
+                text_advance,
+                text_left,
+                text_right,
+            )):
+                continue
+
+            raw_anchor = (
+                _effective_presentation_value(
+                    text_el,
+                    'text-anchor',
+                    parent_by_id,
+                )
+                or 'start'
+            ).strip().lower()
+            try:
+                anchor = _parse_project_text_anchor(raw_anchor).value
+            except ValueError:
+                continue
+            if anchor == 'middle':
+                anchor_x = x - text_advance / 2
+            elif anchor == 'end':
+                anchor_x = x - text_advance
+            elif anchor == 'start':
+                anchor_x = x
+            else:
+                continue
+            left = anchor_x + text_left
+            right = anchor_x + text_right
+
+            matrix = _IDENTITY_MATRIX
+            try:
+                for current in reversed(chain):
+                    raw_transform = current.get('transform')
+                    if raw_transform:
+                        matrix = _matrix_multiply(
+                            matrix,
+                            _parse_transform_matrix(raw_transform),
+                        )
+                start = _transform_point(matrix, left, y)
+                end = _transform_point(matrix, right, y)
+            except (TypeError, ValueError):
+                continue
+            estimated_left = min(start[0], end[0])
+            estimated_right = max(start[0], end[0])
+            if estimated_left >= min_x - 1 and estimated_right <= max_x + 1:
+                continue
+
+            snippet = re.sub(r'\s+', ' ', visible_text).strip()
+            if len(snippet) > 40:
+                snippet = f'{snippet[:37]}...'
+            issues.append(f'{_element_label(text_el)} {snippet!r}')
+
+        if issues:
+            sample = '; '.join(issues[:3])
+            suffix = '' if len(issues) <= 3 else f'; +{len(issues) - 3} more'
+            result['warnings'].append(
+                f'Detected {len(issues)} single-line text element(s) whose '
+                'estimated horizontal bounds exceed the viewBox '
+                f'({sample}{suffix}); consider repositioning or using '
+                'positioned <tspan> lines'
+            )
 
     def _check_unmergeable_leading_text(self, root: ET.Element, result: Dict) -> None:
         """Warn when leading text cannot be normalized for paragraph merging."""
@@ -2496,9 +2991,14 @@ class SVGQualityChecker:
         """Check image file existence and resolution vs display size."""
         svg_dir = svg_path.parent
         checked = set()
+        parent_by_id = {
+            id(child): parent
+            for parent in root.iter()
+            for child in list(parent)
+        }
 
         for image in root.iter():
-            if _local_name(image).lower() != 'image':
+            if image.tag != f'{{{SVG_NS}}}image':
                 continue
 
             href = image.get('href') or image.get(f'{{{XLINK_NS}}}href')
@@ -2506,7 +3006,7 @@ class SVGQualityChecker:
                 continue
             if self.template_mode and '{{' in href and '}}' in href:
                 continue
-            if _resolve_external_image_reference is None or _unresolved_external_image_reference_path is None:
+            if _resolve_external_image_reference is None:
                 result['warnings'].append(
                     "Detected image references, but shared image resolver could not be imported; "
                     "export will still validate them."
@@ -2518,14 +3018,24 @@ class SVGQualityChecker:
 
             img_path = _resolve_external_image_reference(svg_dir, href)
             if img_path is None:
-                resolved_path = _unresolved_external_image_reference_path(svg_dir, href)
-                result['errors'].append(
-                    f"Image file not found: {href} (resolved to {resolved_path})")
+                # The shared image-source contract already reports the
+                # blocking resolution failure. This pass adds quality advice
+                # only for valid, resolved images.
                 continue
 
             # Check resolution vs display size
-            display_w_str = image.get('width')
-            display_h_str = image.get('height')
+            display_owner = image
+            parent = parent_by_id.get(id(image))
+            if (
+                parent is not None
+                and parent is not root
+                and parent.tag == f'{{{SVG_NS}}}svg'
+            ):
+                # Imported crops use a unit-frame inner image. Quality advice
+                # must compare the source against the visible outer frame.
+                display_owner = parent
+            display_w_str = display_owner.get('width')
+            display_h_str = display_owner.get('height')
             if not display_w_str or not display_h_str:
                 continue
 
@@ -2854,18 +3364,142 @@ class SVGQualityChecker:
         visit(root, _IDENTITY_MATRIX)
         result['errors'].extend(sorted(issues))
 
-    def _check_animation_group_ids(self, root: ET.Element, result: Dict):
-        """Warn when visible top-level groups cannot be customized."""
+    @staticmethod
+    def _is_full_canvas_root_rect(
+        root: ET.Element,
+        element: ET.Element,
+    ) -> bool:
+        """Return whether one direct rect is the ordinary full-page backdrop."""
+        if (
+            _local_name(element) != 'rect'
+            or _parse_project_geometry_length is None
+            or any(
+                element.get(attribute)
+                for attribute in ('transform', 'filter', 'clip-path')
+            )
+        ):
+            return False
+        viewbox = _parse_viewbox_values(root.get('viewBox') or '')
+        if viewbox is None:
+            return False
+
+        parent_by_id = {id(element): root}
+
+        def inherited(name: str, default: str) -> str:
+            return _effective_presentation_value(
+                element,
+                name,
+                parent_by_id,
+            ) or default
+
+        try:
+            values = {
+                name: _parse_project_geometry_length(
+                    element.get(name) or '0',
+                    name,
+                )
+                for name in ('x', 'y', 'width', 'height', 'rx', 'ry')
+            }
+            stroke_width = _parse_project_geometry_length(
+                inherited('stroke-width', '1'),
+                'stroke-width',
+            )
+            stroke_opacity = (
+                _parse_project_opacity(inherited('stroke-opacity', '1'))
+                if _parse_project_opacity is not None else 1.0
+            )
+        except ValueError:
+            return False
+        fill = inherited('fill', '#000000').strip().lower()
+        stroke = inherited('stroke', 'none').strip().lower()
+        if (
+            fill == 'none'
+            or (
+                stroke != 'none'
+                and stroke_width > 0
+                and stroke_opacity > 0
+            )
+        ):
+            return False
+
+        view_x, view_y, view_width, view_height = viewbox
+        tolerance = 0.5
+        return (
+            values['rx'] == 0
+            and values['ry'] == 0
+            and abs(values['x'] - view_x) <= tolerance
+            and abs(values['y'] - view_y) <= tolerance
+            and abs(values['width'] - view_width) <= tolerance
+            and abs(values['height'] - view_height) <= tolerance
+        )
+
+    def _check_animation_group_ids(
+        self,
+        root: ET.Element,
+        svg_path: Path,
+        result: Dict,
+    ):
+        """Validate top-level animation anchors without policing inner groups."""
         non_visual = {'defs', 'title', 'desc', 'metadata', 'style'}
-        for index, child in enumerate(list(root), start=1):
-            tag = child.tag.split('}', 1)[-1]
+        group_indexes: Dict[str, List[int]] = defaultdict(list)
+        ungrouped: List[str] = []
+        visual_index = 0
+
+        for child in root:
+            tag = _local_name(child)
             if tag in non_visual:
                 continue
-            if tag == 'g' and not child.get('id'):
-                result['warnings'].append(
-                    f"Top-level visible <g> #{index} has no id; "
-                    "object-level animation config cannot reference it"
+            visual_index += 1
+            is_first_visual = visual_index == 1
+
+            if tag == 'g':
+                group_id = _usable_animation_group_id(child.get('id'))
+                if group_id is None:
+                    result['warnings'].append(
+                        f"Top-level visible <g> #{visual_index} has no id; "
+                        "object-level animation config cannot reference it"
+                    )
+                    continue
+                group_indexes[group_id].append(visual_index)
+                continue
+
+            if svg_path.parent.name != 'svg_output':
+                continue
+            if child.get('data-pptx-layer') is not None:
+                continue
+            if (
+                _is_static_page_frame is not None
+                and _is_static_page_frame(
+                    child.get('data-pptx-role'),
+                    child.get('data-pptx-placeholder'),
                 )
+            ):
+                continue
+            if is_first_visual and self._is_full_canvas_root_rect(root, child):
+                continue
+            child_id = (child.get('id') or '').strip()
+            ungrouped.append(
+                f'<{tag} id="{child_id}">'
+                if child_id else f'<{tag}> #{visual_index}'
+            )
+
+        for group_id, indexes in sorted(group_indexes.items()):
+            if len(indexes) > 1:
+                positions = ', '.join(str(item) for item in indexes)
+                result['errors'].append(
+                    f'Duplicate top-level group id {group_id!r} at visible '
+                    f'positions {positions}; animation target ids must be unique'
+                )
+
+        if ungrouped:
+            samples = ', '.join(ungrouped[:3])
+            if len(ungrouped) > 3:
+                samples += ', ...'
+            result['warnings'].append(
+                f'{len(ungrouped)} ungrouped top-level Slide-local element(s) '
+                f'in svg_output ({samples}); wrap each logical content unit '
+                'in a top-level <g id="...">'
+            )
 
     # OOXML ST_PresetPatternVal enum — anything outside this set produces a
     # PPTX schema violation ("PowerPoint found a problem with the content").
@@ -3161,6 +3795,7 @@ class SVGQualityChecker:
             svg_path,
             require_structure=require_structure,
         ))
+        self._check_placeholder_carrier_flattening(root, svg_path, result)
         if svg_path.parent.name == 'svg_output':
             self._append_structure_coverage_warnings(root, result)
         if _validate_template_structure_svg is None:
@@ -3171,6 +3806,87 @@ class SVGQualityChecker:
             return
         result['errors'].extend(_validate_template_structure_svg(svg_path))
         result['errors'] = list(dict.fromkeys(result['errors']))
+
+    @staticmethod
+    def _check_placeholder_carrier_flattening(
+        root: ET.Element,
+        svg_path: Path,
+        result: Dict,
+    ) -> None:
+        """Reject slot carriers that export as multiple native children.
+
+        Default export flattens non-mergeable positional ``<tspan>`` lines
+        before converting the surrounding slot group to DrawingML. Reuse that
+        exact transform here so the quality gate fails before the later
+        placeholder-unwrapping step does.
+        """
+        if _flatten_positional_tspans is None:
+            return
+
+        candidate_ids: List[str] = []
+        for slot in root.iter(f'{{{SVG_NS}}}g'):
+            if not (slot.get('data-pptx-placeholder') or '').strip():
+                continue
+            binding = (
+                slot.get('data-pptx-placeholder-binding') or 'carrier'
+            ).strip().lower()
+            if binding != 'carrier':
+                continue
+            visual_children = [
+                child for child in list(slot)
+                if _local_name(child) not in _NON_VISUAL_SVG_TAGS
+            ]
+            carriers = [
+                child for child in visual_children
+                if (child.get('data-pptx-placeholder-carrier') or '')
+                .strip()
+                .lower()
+                == 'true'
+            ]
+            slot_id = (slot.get('id') or '').strip()
+            if not slot_id or len(visual_children) != 1 or len(carriers) != 1:
+                continue
+            if not any(
+                _local_name(descendant) == 'tspan'
+                and any(
+                    descendant.get(name) is not None
+                    for name in ('x', 'y', 'dy')
+                )
+                for descendant in carriers[0].iter()
+            ):
+                continue
+            candidate_ids.append(slot_id)
+
+        if not candidate_ids:
+            return
+
+        flattened_root = copy.deepcopy(root)
+        _flatten_positional_tspans(
+            ET.ElementTree(flattened_root),
+            merge_paragraphs=True,
+        )
+        slots_by_id = {
+            (slot.get('id') or '').strip(): slot
+            for slot in flattened_root.iter(f'{{{SVG_NS}}}g')
+            if (slot.get('id') or '').strip()
+        }
+        for slot_id in candidate_ids:
+            slot = slots_by_id.get(slot_id)
+            if slot is None:
+                continue
+            native_children = [
+                child for child in list(slot)
+                if _local_name(child) not in _NON_VISUAL_SVG_TAGS
+            ]
+            if len(native_children) == 1:
+                continue
+            result['errors'].append(
+                f"{svg_path.name}: placeholder slot {slot_id} becomes "
+                f"{len(native_children)} native children after positional "
+                "<tspan> flattening; a carrier-bound slot must export as one "
+                "text or picture carrier. Use one mergeable dy-stacked text "
+                "frame, or move independently positioned lines outside the slot"
+            )
 
     @staticmethod
     def _append_structure_coverage_warnings(
@@ -3688,10 +4404,59 @@ class SVGQualityChecker:
             self.issue_types['Input issues'] += 1
             return []
 
+        directory_expected_viewbox: str | None = None
+        directory_expected_label = "the first SVG canvas"
+        directory_lock_has_canvas = False
+        if self.template_mode:
+            template_viewbox = _declared_template_canvas_viewbox(dir_path)
+            if template_viewbox:
+                directory_expected_viewbox = template_viewbox
+                directory_expected_label = "design_spec canvas_viewbox"
+            else:
+                directory_expected_viewbox = ""
+                directory_expected_label = "design_spec canvas_viewbox"
+        if expected_format is None and directory_expected_viewbox is None:
+            lock = (
+                None
+                if self.template_mode
+                else self._get_spec_lock(svg_files[0])
+            )
+            if lock is not None:
+                if 'canvas' in lock:
+                    directory_lock_has_canvas = True
+                    locked_viewbox = lock.get('canvas', {}).get('viewBox')
+                    if locked_viewbox:
+                        directory_expected_viewbox = locked_viewbox
+                        directory_expected_label = "spec_lock canvas"
+                else:
+                    directory_expected_viewbox = ""
+                    directory_expected_label = "spec_lock canvas"
+            if (
+                directory_expected_viewbox is None
+                and not directory_lock_has_canvas
+            ):
+                for svg_file in svg_files:
+                    try:
+                        root = ET.parse(svg_file).getroot()
+                        first_canvas = parse_project_viewbox(
+                            root.get('viewBox'),
+                            context=f"{svg_file.name} root viewBox",
+                        )
+                    except (OSError, ET.ParseError, CanvasContractError):
+                        continue
+                    directory_expected_viewbox = first_canvas.canonical
+                    directory_expected_label = f"first SVG {svg_file.name}"
+                    break
+
         print(f"\n[SCAN] Checking {len(svg_files)} SVG file(s)...\n")
 
         for svg_file in svg_files:
-            result = self.check_file(str(svg_file), expected_format)
+            result = self.check_file(
+                str(svg_file),
+                expected_format,
+                expected_viewbox=directory_expected_viewbox,
+                expected_viewbox_label=directory_expected_label,
+            )
             self._print_result(result)
 
         if self.template_mode:

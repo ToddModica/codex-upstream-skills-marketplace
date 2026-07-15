@@ -27,7 +27,8 @@ from xml.etree import ElementTree as ET
 
 from .color_resolver import ColorPalette, find_color_elem, resolve_color
 from .emu_units import (
-    NS, Xfrm, fmt_num, emu_to_px, hundredths_pt_to_px,
+    NS, Xfrm, fmt_num, emu_to_px, format_ooxml_alpha,
+    hundredths_pt_to_px,
 )
 from .fill_to_svg import resolve_fill
 
@@ -75,6 +76,7 @@ class TextParagraph:
     line_height_ratio: float = DEFAULT_LINE_HEIGHT_RATIO
     space_before_px: float = 0.0
     space_after_px: float = 0.0
+    empty_line_font_size_px: float = DEFAULT_FONT_SIZE_PX
     bullet_prefix: str = ""  # rendered prefix like '• ' or '1. '
 
 
@@ -133,6 +135,10 @@ def convert_txbody(
     bins = _read_emu_attr(body_pr, "bIns", DEFAULT_INSETS_EMU["b"])
     anchor = body_pr.attrib.get("anchor", "t") if body_pr is not None else "t"
     wrap_mode = body_pr.attrib.get("wrap", "square") if body_pr is not None else "square"
+    respect_edge_spacing = (
+        body_pr is not None
+        and body_pr.attrib.get("spcFirstLastPara") in {"1", "true"}
+    )
 
     inner_x = xfrm.x + lins
     inner_y = xfrm.y + tins
@@ -150,7 +156,19 @@ def convert_txbody(
         _paragraph_height_from_lines(p, lines)
         for p, lines in zip(paragraphs, para_lines)
     ]
-    total_h = sum(para_heights)
+    space_before = [paragraph.space_before_px for paragraph in paragraphs]
+    space_after = [paragraph.space_after_px for paragraph in paragraphs]
+    if not respect_edge_spacing:
+        space_before[0] = 0.0
+        space_after[-1] = 0.0
+    total_h = sum(
+        before + height + after
+        for before, height, after in zip(
+            space_before,
+            para_heights,
+            space_after,
+        )
+    )
     if anchor == "ctr":
         cursor_y = inner_y + max(0.0, (inner_h - total_h) / 2.0)
     elif anchor == "b":
@@ -160,14 +178,20 @@ def convert_txbody(
 
     bottom_y = inner_y + inner_h
     text_blocks: list[str] = []
-    for para, lines, height in zip(paragraphs, para_lines, para_heights):
-        cursor_y += para.space_before_px
+    for para, lines, height, before, after in zip(
+        paragraphs,
+        para_lines,
+        para_heights,
+        space_before,
+        space_after,
+    ):
+        cursor_y += before
         visible_lines = _clip_lines_to_bottom(para, lines, cursor_y, bottom_y)
         if visible_lines:
             text_blocks.append(
                 _emit_paragraph(para, visible_lines, inner_x, inner_w, cursor_y)
             )
-        cursor_y += height + para.space_after_px
+        cursor_y += height + after
         if cursor_y >= bottom_y:
             break
 
@@ -231,11 +255,7 @@ def convert_vertical_txbody(
     glyphs: list[tuple[str, TextRun]] = []
     for run in runs:
         for char in run.text:
-            if char in "\r\n":
-                continue
-            if char == " ":
-                continue
-            glyphs.append((char, run))
+            glyphs.append((" " if char in "\t\r\n" else char, run))
 
     if not glyphs:
         return TextResult()
@@ -416,6 +436,21 @@ def _parse_paragraph(
     # defRPr from pPr and txBody/lstStyle, both optional.
     def_rpr = p_pr.find("a:defRPr", NS) if p_pr is not None else None
     list_def_rpr = _child_chain(para_style_chain[1:], "a:defRPr")
+    para.empty_line_font_size_px = _font_size_px(
+        (end_rpr, def_rpr, list_def_rpr) + fallback_run_props,
+        default_font_size_px,
+    )
+
+    def resolved_run(text: str, rpr: ET.Element | None) -> TextRun:
+        return _build_run(
+            text, rpr, end_rpr, palette, theme_fonts,
+            def_rpr=def_rpr,
+            list_def_rpr=list_def_rpr,
+            fallback_run_props=fallback_run_props,
+            default_fill=default_fill,
+            default_font_size_px=default_font_size_px,
+            id_prefix=id_prefix, id_seq=id_seq,
+        )
 
     for child in list(p_elem):
         if not isinstance(child.tag, str):
@@ -425,21 +460,18 @@ def _parse_paragraph(
             rpr = child.find("a:rPr", NS)
             text_elem = child.find("a:t", NS)
             text = text_elem.text or "" if text_elem is not None else ""
-            run = _build_run(
-                text, rpr, end_rpr, palette, theme_fonts,
-                def_rpr=def_rpr,
-                list_def_rpr=list_def_rpr,
-                fallback_run_props=fallback_run_props,
-                default_fill=default_fill,
-                default_font_size_px=default_font_size_px,
-                id_prefix=id_prefix, id_seq=id_seq,
-            )
-            para.runs.append(run)
+            para.runs.append(resolved_run(text, rpr))
         elif local == "br":
+            break_rpr = child.find("a:rPr", NS)
             para.runs.append(TextRun(
                 text="",
-                font_size_px=default_font_size_px,
-                font_family="sans-serif", fill=default_fill,
+                font_size_px=_font_size_px(
+                    (break_rpr, def_rpr, list_def_rpr, end_rpr)
+                    + fallback_run_props,
+                    default_font_size_px,
+                ),
+                font_family="sans-serif",
+                fill=default_fill,
                 is_break=True,
             ))
         elif local == "fld":
@@ -453,18 +485,20 @@ def _parse_paragraph(
             if field_type == "slidenum" and slide_number is not None:
                 text = str(slide_number)
             if text:
-                run = _build_run(
-                    text, rpr, end_rpr, palette, theme_fonts,
-                    def_rpr=def_rpr,
-                    list_def_rpr=list_def_rpr,
-                    fallback_run_props=fallback_run_props,
-                    default_fill=default_fill,
-                    default_font_size_px=default_font_size_px,
-                    id_prefix=id_prefix, id_seq=id_seq,
-                )
-                para.runs.append(run)
+                para.runs.append(resolved_run(text, rpr))
 
     return para
+
+
+def _font_size_px(
+    sources: tuple[ET.Element | None, ...],
+    default_font_size_px: float,
+) -> float:
+    """Resolve one effective DrawingML run size into SVG pixels."""
+    return hundredths_pt_to_px(
+        _attr_chain(sources, "sz"),
+        default_font_size_px,
+    )
 
 
 def _build_run(
@@ -487,8 +521,7 @@ def _build_run(
         rpr, def_rpr, list_def_rpr, end_rpr,
     ) + fallback_run_props
     # font-size: rPr > pPr/defRPr > lstStyle/lvlNpPr/defRPr > endParaRPr > default
-    sz = _attr_chain(style_chain, "sz")
-    font_size_px = hundredths_pt_to_px(sz, default_font_size_px)
+    font_size_px = _font_size_px(style_chain, default_font_size_px)
     # Bold / italic
     bold = _attr_chain(style_chain, "b") == "1"
     italic = _attr_chain(style_chain, "i") == "1"
@@ -920,6 +953,10 @@ def _wrap_paragraph_into_lines(
 
     for run in para.runs:
         if run.is_break:
+            # Keep the break on the line it terminates so consecutive breaks
+            # form a break-only empty line. Visible text owns a non-empty
+            # line's height; the break rPr owns only that empty line.
+            lines[-1].append(run)
             lines.append([])
             cur_w = 0.0
             continue
@@ -1001,7 +1038,7 @@ def _paragraph_height_from_lines(p: TextParagraph,
                                  lines: list[list[TextRun]]) -> float:
     """Total px height after wrapping. Each line uses its own max font size."""
     if not lines:
-        return DEFAULT_FONT_SIZE_PX * p.line_height_ratio
+        return p.empty_line_font_size_px * p.line_height_ratio
     height = 0.0
     for line in lines:
         height += _line_height(p, line)
@@ -1009,8 +1046,19 @@ def _paragraph_height_from_lines(p: TextParagraph,
 
 
 def _line_height(p: TextParagraph, line: list[TextRun]) -> float:
-    max_font = max((r.font_size_px for r in line), default=DEFAULT_FONT_SIZE_PX)
-    return max_font * p.line_height_ratio
+    return _line_font_size(p, line) * p.line_height_ratio
+
+
+def _line_font_size(p: TextParagraph, line: list[TextRun]) -> float:
+    visible_sizes = [
+        run.font_size_px
+        for run in line
+        if not run.is_break and run.text
+    ]
+    if visible_sizes:
+        return max(visible_sizes)
+    break_sizes = [run.font_size_px for run in line if run.is_break]
+    return max(break_sizes, default=p.empty_line_font_size_px)
 
 
 def _clip_lines_to_bottom(
@@ -1036,16 +1084,8 @@ def _clip_lines_to_bottom(
 
 def _paragraph_height(p: TextParagraph) -> float:
     """Legacy helper kept for callers that don't pre-wrap (currently unused)."""
-    lines = 1
-    max_font = 0.0
-    for r in p.runs:
-        if r.is_break:
-            lines += 1
-            continue
-        max_font = max(max_font, r.font_size_px)
-    if max_font == 0.0:
-        max_font = DEFAULT_FONT_SIZE_PX
-    return lines * max_font * p.line_height_ratio
+    lines = _wrap_paragraph_into_lines(p, float("inf"))
+    return _paragraph_height_from_lines(p, lines)
 
 
 def _emit_paragraph(
@@ -1071,33 +1111,45 @@ def _emit_paragraph(
         anchor_x = inner_x + para.indent_px + para.margin_left_px
         text_anchor = "start"
 
-    if not lines or all(not line for line in lines):
+    if not lines:
         return ""
 
-    # First non-empty line drives the text-level baseline + default style
-    first_line_idx = next((i for i, ln in enumerate(lines) if ln), 0)
-    first_line = lines[first_line_idx]
-    first_run = first_line[0] if first_line else None
-    first_font = first_run.font_size_px if first_run else DEFAULT_FONT_SIZE_PX
-    first_baseline = top_y + 0.85 * first_font
+    visible_lines = [
+        [run for run in line if not run.is_break and run.text]
+        for line in lines
+    ]
+    first_line_idx = next(
+        (index for index, line in enumerate(visible_lines) if line),
+        None,
+    )
+    if first_line_idx is None:
+        return ""
+
+    first_run = visible_lines[first_line_idx][0]
+    first_baseline = top_y + 0.85 * first_run.font_size_px
 
     spans: list[str] = []
-    for line_idx, line in enumerate(lines):
-        if not line:
-            # Blank line (e.g. consecutive a:br): still advance baseline
-            spans.append(
-                f'<tspan x="{fmt_num(anchor_x)}" '
-                f'dy="{fmt_num(first_font * para.line_height_ratio)}"></tspan>'
+    for line_idx, line in enumerate(visible_lines):
+        line_advance = None
+        if line_idx > 0:
+            height_line = (
+                lines[line_idx - 1]
+                if line_idx <= first_line_idx else lines[line_idx]
             )
-            continue
-        line_font = max(r.font_size_px for r in line)
-        for run_idx, run in enumerate(line):
-            attrs = _run_tspan_attrs(run)
-            if run_idx == 0 and line_idx > 0:
-                # Start-of-line tspan: position via x + dy
+            line_advance = _line_height(para, height_line)
+        if not line:
+            if line_advance is not None:
                 spans.append(
                     f'<tspan x="{fmt_num(anchor_x)}" '
-                    f'dy="{fmt_num(line_font * para.line_height_ratio)}"'
+                    f'dy="{fmt_num(line_advance)}"></tspan>'
+                )
+            continue
+        for run_idx, run in enumerate(line):
+            attrs = _run_tspan_attrs(run)
+            if run_idx == 0 and line_advance is not None:
+                spans.append(
+                    f'<tspan x="{fmt_num(anchor_x)}" '
+                    f'dy="{fmt_num(line_advance)}"'
                     f'{attrs}>{_xml_escape(run.text)}</tspan>'
                 )
             else:
@@ -1123,7 +1175,9 @@ def _text_base_attrs(run: TextRun | None, x: float, y: float,
     parts.append(f'font-size="{fmt_num(run.font_size_px)}"')
     parts.append(f'fill="{run.fill}"')
     if run.fill_opacity < 1.0:
-        parts.append(f'fill-opacity="{fmt_num(run.fill_opacity, 4)}"')
+        parts.append(
+            f'fill-opacity="{format_ooxml_alpha(run.fill_opacity)}"'
+        )
     if run.bold:
         parts.append('font-weight="bold"')
     if run.italic:
@@ -1151,7 +1205,9 @@ def _run_tspan_attrs(run: TextRun) -> str:
         f'font-size="{fmt_num(run.font_size_px)}"',
     ]
     if run.fill_opacity < 1.0:
-        parts.append(f'fill-opacity="{fmt_num(run.fill_opacity, 4)}"')
+        parts.append(
+            f'fill-opacity="{format_ooxml_alpha(run.fill_opacity)}"'
+        )
     if run.bold:
         parts.append('font-weight="bold"')
     if run.italic:

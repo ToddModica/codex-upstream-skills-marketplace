@@ -1,5 +1,36 @@
 # Changelog
 
+## [2.0.0] - 2026-07-15 — Plugin 一键安装 / 分发铺设
+
+### Added
+- Claude Code plugin 化：新增 `.claude-plugin/plugin.json` + `.claude-plugin/marketplace.json`（单仓库自荐为自己的 marketplace），两条命令装完：`/plugin marketplace add MrGeDiao/shuorenhua` + `/plugin install shuorenhua@shuorenhua`。
+- plugin 直接以仓库根目录 `SKILL.md` 作为唯一 skill（Claude Code 支持单 skill plugin 的根布局），不引入 `skills/` 包装目录，「规则文件不复制成两份」以零拷贝满足；Windows 安装无需额外配置。（2026-07-15 发布前修订：替换原符号链接包装方案）
+- README 新增 `## English` 段：一段式项目说明 + plugin 安装命令，供目录收录和国际用户。
+
+### Changed
+- `install/claude-code.md`：plugin 安装提为方式 1（含重复安装提醒），原项目级 / 全局 / 软链方式顺延为方式 2-4，全部保留。
+- README「30 秒上手」Claude Code 块换成两条 plugin 命令，手动安装移到安装文档。
+- （2026-07-11 发布前修订）双模型实跑改盲测口径：新增 `automation/eval/make_blind.py`，从 `benchmark.md` 生成 `evals/benchmark-blind.md`（匿名编号 B-xx、固定种子乱序、不含预期）和 `evals/benchmark-map.md`（judge 用映射表）；旧口径被测模型直接读 `benchmark.md`，预期 / 理由和 SF/SNF 编号前缀等于把答案递给考生。`automation/eval/` 三份文件与 `run-eval.md` 口径同步，批次改按 B 编号切。
+- （2026-07-11 发布前修订）`evals/real-samples.md` 更名「场景样本评测（高拟真合成）」（文件路径不变防断链）：样本是"观察归纳 + 合成"产物，旧名「真实样本评测」易被误读为真实用户样本；SKILL.md / README 引用文案同步。
+- （2026-07-11 发布前修订）新增 `evals/run-manifest.md`：实跑元数据登记（评测集版本 / 模型 / 口径 / 原始输出位置），回填 v1.9.0–v1.9.2，历史缺项如实标「未记录」。
+
+### Fixed（2026-07-11 / 2026-07-15 发布前 deep review）
+- （2026-07-15）`evals/benchmark.md` SF-15 / SF-23 预期示例不再编造原文没有的数据与实现（"3 倍 / 2 秒 / 0.4 秒"、"LRU / Redis / 10k QPS"）：与下面 SF-02 / SF-09 同类修法，示例只用原文已有信息重组，对齐盲测 rewrite prompt「不得编造数据与指标」的保真合同。同类隐患一并处理：`references/positive-style.md` §2.3 节奏示例补「没有数据就只调句长，不编数」的边界；`evals/real-samples.md` RS-06 推荐改法标注作者视角（替别人改写时拿不到事实，只删空话不编细节）。
+- `evals/benchmark.md` SF-02 / SF-09 预期不再要求"给具体数据"：两条原文本无数据，旧预期与 fact-preservation 冲突（results-v1.9.1 §3 已确认"不编造是对的"），改为对齐 v2.1.0 规格的"清理后的落点"合同——允许短而直白，不得编造、不得留更泛空话。
+- `SKILL.md` 保真回读"补一条事实句"补上限定：只能用原文已有信息重组，找不到就不补，堵住诱导补写新事实的口子。
+- README 六步流程第 3 步与 SKILL.md 对齐：Tier 表示命中强度，不直接等于改写力度（原文案"按命中强度定力度"与 SKILL.md "不要把 Tier 当作改写力度"相抵）。
+
+### Tested
+- `claude plugin validate . --strict` 通过（plugin + marketplace 清单）。
+- 本机实测完整链路（2026-07-15 按无 symlink 布局复测）：`marketplace add`（本地路径）→ `install` → `claude plugin details` 确认 Skills (1) shuorenhua 被发现，安装缓存为整仓拷贝，根目录 `SKILL.md` 对 `references/`、`evals/` 的相对引用直接解析 → 卸载恢复原状。常驻成本以当前版本 `claude plugin details` 实测为准（估算值随 CLI 版本与计算口径漂移，同一工作区多次实测差异可达数量级，不记具体数字）。GitHub 远程安装路径待 push 后由维护者复测一次。
+- 现有手动安装路径（cp / 软链）不受影响；plugin 与 skills 目录安装并存会重复触发，安装文档已写明先移除旧安装。
+- 盲测口径 smoke（2026-07-15，登记见 `evals/run-manifest.md`）：B-01–08 + 定向 B-58/B-78 端到端跑通，Codex 盲改写 → Claude 按映射表交叉判分，改写输出与判分表的格式合同全对齐；B-58/B-78（即修订后的 SF-23/SF-15）无编造数据或技术选型。已知缺口：`make_blind.py` 不传递 J 节的节级 scope 指令，judge 对 SF-39/40 暂不因 scope 判定记 ❌，修法待 v2.1.0 评估。
+
+### Notes
+- 分发动作从原规划的 2026-08 提前：仓库流量 6 月中旬起跳变约 6 倍并保持平台期（详见 local metrics log），按 2026-06 迭代文档 §4 的加码条件执行。
+- 目录提交材料包与维护者手动清单在 local tasks 工作区；提交前需逐目录现查收录方式。
+- 第三方在线 demo（issue #4 提及）的评估与背书决策留给维护者，本版不代做。
+
 ## [1.9.2] - 2026-07-05 — Claude 5 口癖巡检 / 标点腔 pattern pack
 
 ### Added

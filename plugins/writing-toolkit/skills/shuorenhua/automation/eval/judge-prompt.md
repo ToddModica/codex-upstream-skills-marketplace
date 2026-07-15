@@ -13,6 +13,9 @@
 开始前先读取：
 - ./evals/run-eval.md
 - ./evals/benchmark.md
+- ./evals/benchmark-map.md
+
+被测输出的标题是盲测编号（B-xx）。判分前先用 ./evals/benchmark-map.md 把盲测编号映射回 benchmark.md 的用例编号（SF-xx / SNF-xx），再按该用例的 `**预期**` / `**理由**` 判分；输出表格用映射后的用例编号。
 
 必要时再读取：
 - ./SKILL.md
@@ -22,8 +25,7 @@
 - ./references/boundary-cases.md
 
 输入会提供：
-- benchmark 区间
-- 对应 benchmark 原文、`**预期**` 或 `**理由**`
+- 盲测区间（例如 B-01 到 B-16）
 - 被测模型输出
 - 若包含 Long-form / in-place 用例，运行者会提供原文字符数、输出字符数和留存百分比
 
@@ -41,7 +43,7 @@
 
 | 编号 | 判定 ✅/⚠️/❌ | 一句依据 |
 |------|--------------|----------|
-| SF-01 | ✅ | <一句依据> |
+| SF-01（B-xx） | ✅ | <一句依据> |
 
 末尾再输出：
 

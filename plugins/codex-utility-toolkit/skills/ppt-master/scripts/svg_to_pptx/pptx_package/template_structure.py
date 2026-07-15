@@ -35,6 +35,7 @@ from ..drawingml.utils import (
     parse_project_geometry_length,
     project_geometry_length_errors,
 )
+from ..canvas_contract import CanvasContractError, parse_project_viewbox
 from ..geometry_properties import (
     GeometryStyleError,
     materialize_inline_geometry_properties,
@@ -50,6 +51,8 @@ _STRUCTURE_ATTRS = frozenset({
     "data-pptx-layout-name",
     "data-pptx-master",
     "data-pptx-master-name",
+    "data-pptx-show-inherited-shapes",
+    "data-pptx-show-master-shapes",
     "data-pptx-placeholder",
     "data-pptx-placeholder-binding",
     "data-pptx-placeholder-bounds",
@@ -223,6 +226,11 @@ class NativePlaceholderSpec:
     idx: int | None
     geometry: tuple[float, float, float, float] | None = None
 
+    @property
+    def effective_idx(self) -> int:
+        """Return the OOXML index after applying the omitted-value default."""
+        return self.idx if self.idx is not None else 0
+
 
 @dataclass(frozen=True)
 class NativeLayoutSpec:
@@ -294,6 +302,8 @@ class TemplateSlideSpec:
     master_name: str
     layout_key: str
     layout_name: str
+    layout_show_master_shapes: bool
+    slide_show_inherited_shapes: bool
     elements: tuple[TemplateElementSpec, ...]
 
     @property
@@ -396,17 +406,8 @@ def _is_authored_preset_atom(elem: ET.Element) -> bool:
 
 
 def _svg_canvas(root: ET.Element) -> tuple[float, float, float, float]:
-    raw_viewbox = (root.get("viewBox") or "").strip()
-    values = [part for part in re.split(r"[\s,]+", raw_viewbox) if part]
-    if len(values) != 4:
-        return 0.0, 0.0, 0.0, 0.0
-    try:
-        x, y, width, height = (float(value) for value in values)
-    except ValueError:
-        return 0.0, 0.0, 0.0, 0.0
-    if not all(math.isfinite(value) for value in (x, y, width, height)):
-        return 0.0, 0.0, 0.0, 0.0
-    return x, y, width, height
+    viewbox = parse_project_viewbox(root.get("viewBox"))
+    return 0.0, 0.0, float(viewbox.width), float(viewbox.height)
 
 
 def _is_full_canvas_solid_rect(
@@ -1197,6 +1198,23 @@ def _structure_attrs(elem: ET.Element) -> list[str]:
     return sorted(attr for attr in _STRUCTURE_ATTRS if elem.get(attr) is not None)
 
 
+def _parse_root_boolean(
+    root: ET.Element,
+    attribute: str,
+    *,
+    svg_path: Path,
+) -> bool:
+    """Parse one optional root boolean with a backward-compatible true default."""
+    raw = root.get(attribute)
+    if raw is None:
+        return True
+    if raw not in {"true", "false"}:
+        raise TemplateStructureError(
+            f"{svg_path.name}: root {attribute} must be exactly 'true' or 'false'"
+        )
+    return raw == "true"
+
+
 def parse_template_slide(
     svg_path: Path,
     slide_num: int,
@@ -1220,6 +1238,13 @@ def parse_template_slide(
 
     if _local_tag(root) != "svg":
         raise TemplateStructureError(f"{svg_path.name}: root element must be <svg>")
+    try:
+        parse_project_viewbox(
+            root.get("viewBox"),
+            context=f"{svg_path.name} root viewBox",
+        )
+    except CanvasContractError as exc:
+        raise TemplateStructureError(str(exc)) from exc
 
     geometry_errors = project_geometry_length_errors(root)
     if geometry_errors:
@@ -1270,6 +1295,16 @@ def parse_template_slide(
         )
     if not layout_name:
         layout_name = re.sub(r"[-_.]+", " ", layout_key).strip().title() or layout_key
+    layout_show_master_shapes = _parse_root_boolean(
+        root,
+        "data-pptx-show-master-shapes",
+        svg_path=svg_path,
+    )
+    slide_show_inherited_shapes = _parse_root_boolean(
+        root,
+        "data-pptx-show-inherited-shapes",
+        svg_path=svg_path,
+    )
     if structured and root.get("data-pptx-layout-kind") is not None:
         raise TemplateStructureError(
             f"{svg_path.name}: data-pptx-layout-kind is obsolete; the root "
@@ -1284,6 +1319,8 @@ def parse_template_slide(
                 "data-pptx-layout-name",
                 "data-pptx-master",
                 "data-pptx-master-name",
+                "data-pptx-show-inherited-shapes",
+                "data-pptx-show-master-shapes",
             }
             and root.get(attr) is not None
         )
@@ -1334,10 +1371,12 @@ def parse_template_slide(
             or elem.get("data-pptx-layout-name") is not None
             or elem.get("data-pptx-master") is not None
             or elem.get("data-pptx-master-name") is not None
+            or elem.get("data-pptx-show-inherited-shapes") is not None
+            or elem.get("data-pptx-show-master-shapes") is not None
         ):
             raise TemplateStructureError(
-                f"{svg_path.name}: Master/Layout identity attributes belong on "
-                "the root <svg> only"
+                f"{svg_path.name}: Master/Layout identity and visibility "
+                "attributes belong on the root <svg> only"
             )
         if layer and layer not in _LAYERS:
             raise TemplateStructureError(
@@ -1605,6 +1644,8 @@ def parse_template_slide(
         master_name=master_name,
         layout_key=layout_key,
         layout_name=layout_name,
+        layout_show_master_shapes=layout_show_master_shapes,
+        slide_show_inherited_shapes=slide_show_inherited_shapes,
         elements=tuple(elements),
     )
     return spec
@@ -1655,6 +1696,16 @@ def _validate_template_slide_contracts(
                     f"{spec.svg_path.name}: globally unique layout {layout_key!r} "
                     f"belongs to Master {spec.master_key!r}, expected "
                     f"{prototype.master_key!r}"
+                )
+            if (
+                spec.layout_show_master_shapes
+                != prototype.layout_show_master_shapes
+            ):
+                raise TemplateStructureError(
+                    f"{spec.svg_path.name}: layout {layout_key!r} uses "
+                    "data-pptx-show-master-shapes="
+                    f"{str(spec.layout_show_master_shapes).lower()}, expected "
+                    f"{str(prototype.layout_show_master_shapes).lower()}"
                 )
             if spec.layout_contract != prototype.layout_contract:
                 raise TemplateStructureError(
@@ -2597,7 +2648,9 @@ def template_prototype_errors(
             == _prototype_placeholder_contract(prototype)
         )
         layout_contract_same = (
-            tuple(item.contract_signature() for item in spec.layout_elements)
+            spec.layout_show_master_shapes
+            == prototype.layout_show_master_shapes
+            and tuple(item.contract_signature() for item in spec.layout_elements)
             == tuple(
                 item.contract_signature() for item in prototype.layout_elements
             )
@@ -2672,6 +2725,15 @@ def template_prototype_errors(
                     f"{prototype.layout_name!r} to {spec.layout_name!r}; assign a "
                     "new key and name to the evolved Layout contract"
                 )
+        if (
+            spec.slide_show_inherited_shapes
+            != prototype.slide_show_inherited_shapes
+        ):
+            errors.append(
+                f"{spec.svg_path.name}: inherited-shape visibility differs from "
+                f"prototype {reference.svg_path.name}; keep root "
+                "data-pptx-show-inherited-shapes unchanged"
+            )
         if not placeholder_contract_same:
             if adherence == "strict":
                 errors.append(
@@ -2745,7 +2807,7 @@ def match_native_placeholders(
                     continue
                 if (
                     item.placeholder_idx is not None
-                    and candidate.idx != item.placeholder_idx
+                    and candidate.effective_idx != item.placeholder_idx
                 ):
                     continue
                 candidate_index = index
@@ -2869,7 +2931,12 @@ def _placement_lint_errors(svg_path: Path) -> list[str]:
                 f"{svg_path.name}: {element_id} uses template metadata below the SVG "
                 "root; only a direct slot child may declare its carrier marker"
             )
-    canvas = _svg_canvas(root)
+    try:
+        canvas = _svg_canvas(root)
+    except CanvasContractError:
+        # Root-canvas validation is owned by parse_template_slide and the
+        # page Checker; placement lint should not duplicate that diagnosis.
+        return errors
     last_order_rank = -1
     for elem in root:
         tag = _local_tag(elem)

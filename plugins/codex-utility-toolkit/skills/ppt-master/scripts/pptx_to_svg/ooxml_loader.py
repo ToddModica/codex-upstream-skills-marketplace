@@ -87,6 +87,28 @@ def _load_xml(zf: zipfile.ZipFile, part_path: str) -> ET.Element | None:
         raise RuntimeError(f"Invalid OOXML part {part_path}: {exc}") from exc
 
 
+def blip_embed_relationship_ids(blip: ET.Element) -> tuple[str, ...]:
+    """Return embedded image relationships in fidelity-preferred order.
+
+    Modern Office stores an editable SVG relationship in ``asvg:svgBlip``
+    while keeping a raster fallback on the owning ``a:blip``. Consumers must
+    try the SVG relationship first and retain the raster relationship only as
+    a compatibility fallback.
+    """
+    embed_attr = f"{{{NS['r']}}}embed"
+    candidates = [
+        node.attrib.get(embed_attr)
+        for node in blip.findall(".//asvg:svgBlip", NS)
+    ]
+    candidates.append(blip.attrib.get(embed_attr))
+
+    ordered: list[str] = []
+    for rel_id in candidates:
+        if rel_id and rel_id not in ordered:
+            ordered.append(rel_id)
+    return tuple(ordered)
+
+
 # ---------------------------------------------------------------------------
 # Data classes for navigable parts
 # ---------------------------------------------------------------------------
@@ -117,6 +139,53 @@ class SlideRef:
     part: PartRef
     layout: PartRef | None
     master: PartRef | None
+
+
+def parse_ooxml_boolean(
+    raw: str | None,
+    *,
+    default: bool,
+    context: str,
+) -> bool:
+    """Parse one XML Schema boolean without silently accepting bad OOXML."""
+    if raw is None:
+        return default
+    token = raw.strip()
+    if token in {"1", "true"}:
+        return True
+    if token in {"0", "false"}:
+        return False
+    raise RuntimeError(f"{context}: invalid boolean value {raw!r}")
+
+
+def part_show_master_sp(part: PartRef) -> bool:
+    """Return one slide/layout part's raw ``showMasterSp`` semantic value."""
+    return parse_ooxml_boolean(
+        part.xml.attrib.get("showMasterSp"),
+        default=True,
+        context=f"{part.path} showMasterSp",
+    )
+
+
+def inherited_shape_visibility(slide: SlideRef) -> tuple[bool, bool]:
+    """Return effective ``(layout_shapes, master_shapes)`` visibility.
+
+    A slide-level false value suppresses both inherited shape trees. A
+    layout-level false value suppresses only its parent Master's shape tree.
+    Background inheritance is separate and intentionally not represented by
+    these booleans.
+    """
+    show_layout_shapes = part_show_master_sp(slide.part)
+    layout_shows_master_shapes = (
+        part_show_master_sp(slide.layout)
+        if slide.layout is not None else True
+    )
+    show_master_shapes = (
+        show_layout_shapes
+        and slide.master is not None
+        and layout_shows_master_shapes
+    )
+    return show_layout_shapes, show_master_shapes
 
 
 # ---------------------------------------------------------------------------
