@@ -96,7 +96,7 @@ release note 的读者要的是变更清单，不是发布宣言。版本号保�
 
 ## 30 秒上手
 
-**先试效果，什么都不用装** — [说人话 GPT](https://chatgpt.com/g/g-69d5d86a32608191b523efd7a4048736-shuo-ren-hua)（ChatGPT，需 Plus / Pro），完整规则已内置，贴文本就能改。
+**先试效果，什么都不用装** — [说人话 GPT](https://chatgpt.com/g/g-6a5829b1163481919e1e45851f6bc709-shuo-ren-hua)（ChatGPT，需 Plus / Pro），完整规则已内置，贴文本就能改。
 
 **Claude Code** — 对话里两条命令装完，之后自动触发：
 
@@ -181,12 +181,12 @@ Cursor、OpenClaw 和自建 agent 见[安装](#安装)。
 |------|------|------|
 | SF | 45 | 应该改的文本必须命中并改掉主要问题 |
 | SNF | 35 | 不该误杀的文本必须放行或轻提示 |
-| Real Samples | 19 | 整段样本按自然、保真、可直接发三项评分，长文加 `长度节奏` |
+| 场景样本 | 19 | 整段样本按自然、保真、可直接发三项评分，长文加 `长度节奏` |
 | Scene Packs | 8 | README / release note / forum post / issue reply 的正反样本 |
 | Long-form In-place | 4 | 长文保长度场景，检查字数留存、句数对齐和关键转场 |
 | Bounded | 3 | 长文整句空话进删除清单，但不误删实句和节奏句 |
 
-v1.9.0 起 benchmark 改为双模型实跑口径（Codex + Claude 交叉判分，见 [evals/results-v1.9.0.md](evals/results-v1.9.0.md)）；静态走查退为发版前快速自查。完整用例集见 [evals/benchmark.md](evals/benchmark.md)，整段场景样本（高拟真合成）见 [evals/real-samples.md](evals/real-samples.md)。`results-v1.8.6.md` 保留为 v1.8.6 首次模型实跑归档。
+v1.9.0 起 benchmark 改为双模型实跑口径（Codex + Claude 交叉判分，见 [evals/results-v1.9.0.md](evals/results-v1.9.0.md)）；v2.0.0 起实跑盲测化：被测模型只看匿名乱序、不含预期的 [evals/benchmark-blind.md](evals/benchmark-blind.md)，judge 按映射表判分，每次实跑的评测集版本、模型和口径登记在 [evals/run-manifest.md](evals/run-manifest.md)。静态走查退为发版前快速自查。完整用例集见 [evals/benchmark.md](evals/benchmark.md)，整段场景样本（高拟真合成）见 [evals/real-samples.md](evals/real-samples.md)。`results-v1.8.6.md` 保留为 v1.8.6 首次模型实跑归档。
 
 ## 安装
 
