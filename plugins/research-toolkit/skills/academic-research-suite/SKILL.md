@@ -16,7 +16,7 @@ description: >
   /ars-unmark-read, /ars-cache-invalidate, /ars-rebuttal-audit, and /ars-full. This skill vendors ARS role prompts,
   references, templates, and shared handoff schemas under ars/.
 metadata:
-  version: "0.1.18"
+  version: "0.1.19"
   upstream_suite: "academic-research-skills"
   codex_adapter: true
 allowed-tools: Read, Glob, Grep, WebSearch, Bash(uv *), Bash(python *), Bash(python3 *)
@@ -29,7 +29,7 @@ This is a Codex adapter for the ARS suite. The vendored ARS content lives under
 
 ## Versioning
 
-This Codex package is version `0.1.18`. The repo-root `VERSION`, this
+This Codex package is version `0.1.19`. The repo-root `VERSION`, this
 `SKILL.md` metadata version, and `manifest.json` `adapter_version` must match.
 Vendored ARS suite versions are tracked separately by source repository commit
 in `manifest.json`.
@@ -149,9 +149,10 @@ using them in Codex:
 | AskUserQuestion | Ask concise clarification questions, or use Codex's structured user-input tool when available in the active mode. |
 | WebSearch | Use Codex web browsing for current facts, source verification, citation checks, and external evidence. Provide source links. |
 | Bash, Write, Edit | Treat as capability descriptions, not required tool names. Follow Codex safety rules and the user's filesystem constraints. |
+| Agent frontmatter `tools: Read, Write, Edit, Grep, Glob` | Preserve this as a least-privilege role boundary. The three protected top-level agent roles do not receive Bash or network transport when dispatched separately; inline execution must not use those roles to widen the current task's authority. |
 | Claude, Claude Code, model-specific wording | Interpret as "the current Codex agent" unless the text is part of a disclosure template or historical example. |
 | `ARS_MODEL_TIERING=economy|quality-boost` | Unset remains the default and preserves current-model behavior. The upstream relative Opus/Sonnet tier names are not hard-mapped to Codex model ids. Apply tiering only when the active Codex runtime supports an explicit per-dispatch model override; otherwise announce a one-line no-op and keep every role on the active model. Use `ars/shared/model_tiering.md` and `ars/scripts/model_tiering_manifest.json` as the classification contract. |
-| `ARS_CROSS_MODEL`, `ARS_CROSS_MODEL_REASONING_EFFORT`, `ARS_OPENAI_COMPAT_BASE_URL`, `ARS_OPENAI_COMPAT_API_KEY` | Treat upstream secondary-model dispatch instructions as no-op unless the user explicitly asks for cross-model review. When explicitly enabled in this Codex package, follow `ars/shared/cross_model_verification.md`: identify the provider/model/id status/content class, obtain explicit user consent before any external upload, preserve risk-stratified sampling and blind-disagreement checkpoint rules, and call only the configured provider API. Do not route the verifier through the active Codex model or invent unconfigured cross-model sections. |
+| `ARS_CROSS_MODEL`, `ARS_CROSS_MODEL_REASONING_EFFORT`, `ARS_OPENAI_COMPAT_BASE_URL`, `ARS_OPENAI_COMPAT_API_KEY` | Treat upstream secondary-model dispatch instructions as no-op unless the user explicitly asks for cross-model review. When explicitly enabled in this Codex package, follow `ars/shared/cross_model_verification.md`: identify the provider/model/id status/content class, obtain explicit user consent before any external upload, preserve risk-stratified sampling and blind-disagreement checkpoint rules, and call only the configured provider API. A dispatched owner emits the canonical `[CROSS-MODEL-HANDOFF v1]` envelope; the dispatching Codex context validates it, sends only the payload, applies the mechanical result routing, and returns judgment work to the owner. Do not route the verifier through the active Codex model or invent unconfigured cross-model sections. |
 | `S2_API_KEY`, `OPENALEX_API_KEY`, `OPENALEX_POLITE_EMAIL`, `CROSSREF_POLITE_EMAIL` | These are optional upstream bibliographic lookup settings. Use them only when the user explicitly runs contamination-signal migration or programmatic reference verification; normal Codex routing does not require them. Never log credential-bearing query strings, and do not use browser retrieval to bypass API rate limits. |
 | `ARS_VERIFICATION_CACHE_PATH` | Optional local SQLite cache path for the v3.11 citation verification gate. Use the upstream default unless the user explicitly asks to inspect or relocate the verification cache. |
 | `fresh Claude Code session`, `Claude Code session` | Read as "a new Codex conversation". Material Passport reset semantics still apply; only the runtime changes. This rule covers `ars/academic-pipeline/WORKFLOW.md`, `ars/academic-pipeline/agents/pipeline_orchestrator_agent.md`, `ars/academic-pipeline/references/passport_as_reset_boundary.md`, `ars/experiment-agent/README.md`, `ars/experiment-agent/README.zh-TW.md`, and `ars/docs/PERFORMANCE.md`. |
@@ -214,6 +215,12 @@ For multi-review phases, preserve independence by writing each reviewer section
 before synthesizing. Do not let the final synthesis erase critical findings from
 devil's advocate or methodology roles.
 
+When an explicitly enabled cross-model checkpoint owner emits
+`[CROSS-MODEL-HANDOFF v1]`, treat it as a transport request rather than a
+deliverable. Follow the closed owner/kind/result mapping and fail-closed parsing
+in `ars/scripts/cross_model_handoff.py`; malformed envelopes or results degrade
+to `unavailable` and must never be repaired by guesswork.
+
 ## Canonical Agent Files
 
 Use these exact filenames. Do not invent hyphenated alternatives or rename files
@@ -260,7 +267,11 @@ Use `ars/shared/` for cross-workflow contracts and quality gates:
 - `ars/shared/model_tiering.md` defines the optional judgment/execution
   classification; Codex applies it only when per-dispatch model selection exists.
 - `ars/shared/cross_model_verification.md` defines risk-stratified verification,
-  blind disagreement checkpoints, provider grounding guards, and model-id status.
+  blind disagreement checkpoints, the canonical dispatcher handoff envelope,
+  provider grounding guards, and model-id status.
+- `ars/shared/contracts/degradation_registry.json` indexes every graceful-
+  degradation mechanism, its emitted state, authority, downstream consumer,
+  and terminal-policy effect without replacing the underlying authority.
 - `ars/shared/agents/compliance_agent.md` defines compliance checks.
 - `ars/shared/compliance_checkpoint_protocol.md`, `ars/shared/prisma_trAIce_protocol.md`, and `ars/shared/raise_framework.md` define integrity and reporting gates.
 - `ars/scripts/` contains upstream validators and reference adapters.

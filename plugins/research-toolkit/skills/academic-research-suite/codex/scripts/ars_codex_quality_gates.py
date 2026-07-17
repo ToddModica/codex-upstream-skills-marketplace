@@ -222,7 +222,7 @@ def check_desktop_plugin_bundle() -> list[str]:
         "Desktop plugin bundle must not contain symlinks: " + ", ".join(symlinks[:20]),
     )
 
-    ignored_names = {".DS_Store", "__pycache__"}
+    ignored_names = {".DS_Store", ".pytest_cache", "__pycache__"}
 
     def materialized_files(root: Path) -> dict[str, Path]:
         return {

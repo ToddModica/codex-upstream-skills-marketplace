@@ -31,10 +31,22 @@ Optional gate roles:
 - Every completed stage ends with a visible checkpoint.
 - Stage 2.5 and Stage 4.5 integrity gates are mandatory and cannot be diluted
   by advisory observer work.
+- The Stage 5 entry gate is the mandatory finalization boundary. Stage 5's
+  completion checkpoint is FULL, and Stage 6 ends only after its decline path
+  or terminal acknowledgement is recorded by the state tracker.
 - `ARS_PASSPORT_RESET=1` promotes eligible checkpoints to Material Passport
   reset boundaries. The reset ledger must remain append-only.
 - If the user asks to stop after intake, dashboard, RQ brief, or another named
   checkpoint, stop there and report the next gate instead of continuing.
+
+## Cross-Model Dispatcher Contract
+
+When cross-model verification was explicitly requested and consented, recognize
+`[CROSS-MODEL-HANDOFF v1]` from a dispatched owner as a transport request, not
+as a deliverable. Validate it with `ars/scripts/cross_model_handoff.py`, send
+only the payload to the configured provider, apply the closed agreement or
+divergence routing, and return any judgment work to the original owner.
+Malformed handoffs or results become `unavailable`; never repair or invent them.
 
 ## Output Contract
 

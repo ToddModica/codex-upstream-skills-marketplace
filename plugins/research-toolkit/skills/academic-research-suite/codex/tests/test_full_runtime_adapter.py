@@ -127,6 +127,30 @@ def test_model_tiering_is_surfaced_without_forcing_a_codex_model() -> None:
     assert delegated["profile"]["model_tiering_requested"] == "quality-boost"
 
 
+def test_cross_model_configuration_requires_dispatcher_consent_gate() -> None:
+    planner = _load_planner()
+    inline = planner.plan_request(
+        "ars-reviewer full review for this manuscript.",
+        env={"ARS_CROSS_MODEL": "gpt-5.5"},
+    )
+    assert inline["profile"]["cross_model_configured"] == "gpt-5.5"
+    assert inline["profile"]["cross_model_handoff_status"] == (
+        "inline_transport_requires_explicit_request_and_consent"
+    )
+
+    delegated = planner.plan_request(
+        "ars-reviewer full review for this manuscript.",
+        env={
+            "ARS_CODEX_FULL_RUNTIME": "1",
+            "ARS_CODEX_AGENT_TEAM": "1",
+            "ARS_CROSS_MODEL": "gpt-5.5",
+        },
+    )
+    assert delegated["profile"]["cross_model_handoff_status"] == (
+        "dispatcher_transport_requires_explicit_request_and_consent"
+    )
+
+
 def test_ars_full_starts_pipeline_and_stops_at_dashboard_checkpoint() -> None:
     planner = _load_planner()
     plan = planner.plan_request(

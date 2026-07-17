@@ -1,14 +1,14 @@
 {
   "name": "academic-research-suite",
-  "adapter_version": "0.1.18",
+  "adapter_version": "0.1.19",
   "version_file": "VERSION",
   "generated_for": "codex",
-  "generated_date": "2026-07-13",
+  "generated_date": "2026-07-17",
   "source_repositories": [
     {
       "name": "academic-research-skills",
       "url": "https://github.com/Imbad0202/academic-research-skills.git",
-      "commit": "73c898c842afae3f163ac571dfa098c72d7c82af",
+      "commit": "039d94f670c47d996ca919d37b8753b0a8d4a140",
       "included_paths": [
         "deep-research",
         "academic-paper",
@@ -101,11 +101,14 @@
     "The Codex package carries scripts/codex_v3_6_7_block_baseline.json so first-time vendored trees can enforce v3.6.7 block byte-equivalence before Git history contains the upstream manifest.",
     "The Codex audit wrapper is patched to run on macOS stock Bash 3.2+ instead of requiring Bash 4+.",
     "Vendored test utilities keep macOS stock Python 3.9 compatibility where Codex local validation depends on it.",
-    "ARS v3.16.0 release content is the tracked upstream content; nested upstream .github workflows, release-discipline tools, and root agents mirrors are preserved for traceability and upstream self-tests but are not repo-level CI or Codex entrypoints. Claude/plugin loader files under .claude, .claude-plugin, and upstream skills aliases remain intentionally excluded.",
+    "ARS v3.17.0 release content is the tracked upstream content; nested upstream .github workflows, release-discipline tools, and root agents mirrors are preserved for traceability and upstream self-tests but are not repo-level CI or Codex entrypoints. Claude/plugin loader files under .claude, .claude-plugin, and upstream skills aliases remain intentionally excluded.",
     "ARS_MODEL_TIERING is classification-compatible but remains advisory in Codex unless the runtime exposes explicit per-dispatch model selection; unset and unsupported cases keep the active model.",
     "The upstream model-tiering validator excludes the separately vendored experiment-agent tree from its frozen 39-agent ARS classification sweep.",
     "Korean intent triggers are propagated into the root Codex router and optional full-runtime planner because vendored WORKFLOW.md frontmatter is not independently registered.",
     "The live cross-model smoke test remains manual-only and cross-model verification retains the explicit provider, content, credential, and consent gate.",
+    "The v3.17 canonical cross-model handoff envelope is preserved; dispatched owners emit a transport request and the dispatching Codex context validates and routes it without widening owner capabilities.",
+    "The v3.17 tools allowlist remains a least-privilege role boundary; Codex inline execution does not reinterpret Claude tool names as additional authority.",
+    "The degradation registry, executable panel checker, pipeline-boundary lock, tools-allowlist lock, and hermetic transport fixtures are vendored with their upstream tests; the pipeline-orchestrator content-lock hash is updated only for the Codex WORKFLOW.md path overlay.",
     "Codex Desktop plugin packaging uses a materialized skills directory under plugins/academic-research-skills/skills instead of a symlink so Windows plugin caches can register the bundled academic-research-suite skill.",
     "Cross-model API behavior is disabled by default and requires explicit user request, provider configuration, and user consent before any external upload."
     ]

@@ -179,6 +179,7 @@ def profile_from_env(env: dict[str, str]) -> dict[str, Any]:
     agent_team = env.get("ARS_CODEX_AGENT_TEAM") == "1"
     hooks = env.get("ARS_CODEX_HOOKS") == "1"
     requested_tiering = env.get("ARS_MODEL_TIERING", "").strip().lower()
+    requested_cross_model = env.get("ARS_CROSS_MODEL", "").strip()
     if not requested_tiering:
         tiering_status = "unset"
     elif requested_tiering not in {"economy", "quality-boost"}:
@@ -187,6 +188,12 @@ def profile_from_env(env: dict[str, str]) -> dict[str, Any]:
         tiering_status = "inline_noop"
     else:
         tiering_status = "advisory_requires_runtime_model_override"
+    if not requested_cross_model:
+        cross_model_status = "unset"
+    elif full_runtime and agent_team:
+        cross_model_status = "dispatcher_transport_requires_explicit_request_and_consent"
+    else:
+        cross_model_status = "inline_transport_requires_explicit_request_and_consent"
     return {
         "full_runtime_enabled": full_runtime,
         "agent_team_enabled": full_runtime and agent_team,
@@ -194,6 +201,8 @@ def profile_from_env(env: dict[str, str]) -> dict[str, Any]:
         "execution_mode": "codex_agent_team" if full_runtime and agent_team else "inline_role_prompts",
         "model_tiering_requested": requested_tiering or None,
         "model_tiering_status": tiering_status,
+        "cross_model_configured": requested_cross_model or None,
+        "cross_model_handoff_status": cross_model_status,
     }
 
 

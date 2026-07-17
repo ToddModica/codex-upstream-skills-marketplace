@@ -35,6 +35,16 @@ roles:
   explicitly resolves them by severity and evidence.
 - Devil's advocate concerns cannot be erased by majority vote. Record whether
   each concern is retained, downgraded, or rejected, and why.
+- Run `ars/scripts/check_panel_synthesis.py` on the structured reviewer and
+  synthesis artifacts when the full v3.17 panel contract is active.
+
+## Cross-Model Dispatcher Contract
+
+If an explicitly enabled and consented reviewer owner emits
+`[CROSS-MODEL-HANDOFF v1]`, the panel dispatcher validates the envelope and
+transports only its payload. Agreement is filled mechanically; divergence or a
+full-return DA result goes back to the original owner. A malformed envelope or
+result degrades to `unavailable` and is never treated as an ordinary review.
 
 ## Output Contract
 

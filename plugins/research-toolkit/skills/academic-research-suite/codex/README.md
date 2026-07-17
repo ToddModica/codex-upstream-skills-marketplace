@@ -59,8 +59,12 @@ Instead it provides an explicit Codex orchestration contract:
 - pipeline orchestration stops at requested checkpoints;
 - Codex model routing uses the active model while preserving upstream
   `opus`/`sonnet` hints as metadata;
-- ARS v3.16 model tiering is surfaced as advisory metadata; it is applied only
+- ARS v3.17 retains model tiering as advisory metadata; it is applied only
   when a Codex runtime provides explicit per-dispatch model selection;
+- canonical cross-model handoffs are validated and transported by the
+  dispatching context, not by least-privilege owner roles;
+- the v3.17 panel, degradation-registry, tools-allowlist, and pipeline-boundary
+  validators remain available as vendored quality gates;
 - inline mode remains available and is the default.
 
 ## Verification
@@ -79,4 +83,8 @@ cd skills/academic-research-suite/ars
 python3 -m pytest scripts/test_codex_router_policy.py
 python3 scripts/check_passport_reset_contract.py
 python3 scripts/check_v3_9_2_phase_boundary.py
+python3 scripts/check_cross_model_handoff_contract.py
+python3 scripts/check_degradation_registry.py
+python3 scripts/check_pipeline_boundary_semantics.py
+python3 scripts/check_tools_allowlist.py
 ```

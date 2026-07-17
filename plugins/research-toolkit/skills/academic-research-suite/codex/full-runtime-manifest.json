@@ -123,7 +123,8 @@
     ],
     "minority_preservation": "Synthesis may prioritize by severity, but must not erase a reviewer-specific concern by majority vote alone.",
     "model_mapping": "Claude model hints are advisory. Codex uses the active model unless an explicit user/runtime override exists.",
-    "model_tiering": "ARS_MODEL_TIERING is surfaced as advisory metadata. Apply the upstream judgment/execution classification only when the runtime provides an explicit per-dispatch model override; otherwise announce a no-op and keep the active model."
+    "model_tiering": "ARS_MODEL_TIERING is surfaced as advisory metadata. Apply the upstream judgment/execution classification only when the runtime provides an explicit per-dispatch model override; otherwise announce a no-op and keep the active model.",
+    "cross_model_handoff": "When explicitly enabled and consented, recognize [CROSS-MODEL-HANDOFF v1] as a transport request. Validate with ars/scripts/cross_model_handoff.py, send only the payload, apply mechanical agreement/divergence routing, and return judgment work to the original owner."
   },
   "quality_gates": [
     {"id": "single_root_skill", "kind": "packaging", "runner": "manifest", "parity": "full"},
@@ -131,6 +132,12 @@
     {"id": "vague_topic_socratic", "kind": "routing", "runner": "router", "parity": "near"},
     {"id": "phase_boundary", "kind": "routing", "runner": "upstream:ars/scripts/check_v3_9_2_phase_boundary.py", "parity": "near"},
     {"id": "model_tiering_classification", "kind": "agent-team", "runner": "upstream:ars/scripts/check_model_tiering.py", "parity": "partial"},
+    {"id": "tools_allowlist", "kind": "agent-team", "runner": "upstream:ars/scripts/check_tools_allowlist.py", "parity": "near"},
+    {"id": "cross_model_handoff", "kind": "agent-team", "runner": "upstream:ars/scripts/check_cross_model_handoff_contract.py", "parity": "near"},
+    {"id": "panel_synthesis", "kind": "review", "runner": "upstream:ars/scripts/check_panel_synthesis.py", "parity": "near"},
+    {"id": "pipeline_boundary_semantics", "kind": "routing", "runner": "upstream:ars/scripts/check_pipeline_boundary_semantics.py", "parity": "near"},
+    {"id": "degradation_registry", "kind": "integrity", "runner": "upstream:ars/scripts/check_degradation_registry.py", "parity": "near"},
+    {"id": "citation_transport_fixtures", "kind": "integrity", "runner": "upstream:ars/scripts/test_transport_fixture_citation_gate.py", "parity": "near"},
     {"id": "passport_reset_contract", "kind": "material-passport", "runner": "upstream:ars/scripts/check_passport_reset_contract.py", "parity": "near"},
     {"id": "citation_claim_audit", "kind": "integrity", "runner": "upstream:ars/scripts/claim_audit_pipeline.py", "parity": "partial"},
     {"id": "temporal_integrity", "kind": "integrity", "runner": "upstream:ars/scripts/temporal_integrity_audit.py", "parity": "near"},
@@ -144,6 +151,7 @@
     "Claude SessionStart and SubagentStop hooks are not installed automatically. The Codex hook pack is local, safe-by-default, and must be explicitly enabled.",
     "Claude model hints opus/sonnet are recorded as metadata; Codex cannot guarantee identical model routing.",
     "ARS model tiering is classification-compatible but remains advisory unless the Codex runtime exposes explicit per-dispatch model selection.",
-    "External cross-model reviewers require explicit API configuration and are not silently simulated."
+    "External cross-model reviewers require explicit API configuration and are not silently simulated.",
+    "Claude agent tools allowlists are preserved as least-privilege role boundaries, but actual Codex tool availability remains controlled by the active runtime and task permissions."
   ]
 }

@@ -232,10 +232,10 @@ cp -R ~/academic-research-skills/academic-pipeline .claude/skills/academic-pipel
 Expected path shape:
 
 ```text
-/path/to/your/project/.claude/skills/deep-research/SKILL.md
-/path/to/your/project/.claude/skills/academic-paper/SKILL.md
-/path/to/your/project/.claude/skills/academic-paper-reviewer/SKILL.md
-/path/to/your/project/.claude/skills/academic-pipeline/SKILL.md
+/path/to/your/project/.claude/skills/deep-research/WORKFLOW.md
+/path/to/your/project/.claude/skills/academic-paper/WORKFLOW.md
+/path/to/your/project/.claude/skills/academic-paper-reviewer/WORKFLOW.md
+/path/to/your/project/.claude/skills/academic-pipeline/WORKFLOW.md
 ```
 
 Then copy the `.claude/CLAUDE.md` content into your project's `.claude/CLAUDE.md` (merge with existing if you have one).
