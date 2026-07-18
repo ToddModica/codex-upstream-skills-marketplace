@@ -180,6 +180,14 @@ def profile_from_env(env: dict[str, str]) -> dict[str, Any]:
     hooks = env.get("ARS_CODEX_HOOKS") == "1"
     requested_tiering = env.get("ARS_MODEL_TIERING", "").strip().lower()
     requested_cross_model = env.get("ARS_CROSS_MODEL", "").strip()
+    raw_stale_days = env.get("ARS_CACHE_STALE_ADVISORY_DAYS")
+    try:
+        cache_stale_advisory_days = 30 if raw_stale_days is None else int(raw_stale_days)
+    except ValueError:
+        cache_stale_advisory_days = 30
+    if cache_stale_advisory_days < 0:
+        cache_stale_advisory_days = 30
+    cache_revalidation_requested = env.get("ARS_CACHE_REVALIDATE") == "1"
     if not requested_tiering:
         tiering_status = "unset"
     elif requested_tiering not in {"economy", "quality-boost"}:
@@ -203,6 +211,13 @@ def profile_from_env(env: dict[str, str]) -> dict[str, Any]:
         "model_tiering_status": tiering_status,
         "cross_model_configured": requested_cross_model or None,
         "cross_model_handoff_status": cross_model_status,
+        "cache_stale_advisory_days": cache_stale_advisory_days,
+        "cache_revalidation_requested": cache_revalidation_requested,
+        "cache_revalidation_status": (
+            "live_bibliographic_revalidation_requested"
+            if cache_revalidation_requested
+            else "cached_default"
+        ),
     }
 
 
@@ -217,16 +232,21 @@ def build_agent_plan(manifest: dict[str, Any], workflow: str, mode: str, profile
         plan: list[dict[str, Any]] = []
         for index, agent_file in enumerate(REVIEWER_ORDER):
             is_synth = agent_file == "editorial_synthesizer_agent.md"
-            plan.append(
-                {
-                    "agent": agent_file.removesuffix(".md"),
-                    "prompt_path": prompt_path(workflow, agent_file),
-                    "dispatch": "after_independent_reviews" if is_synth else "parallel_independent_review",
-                    "independence_group": "synthesis" if is_synth else "reviewer_blind_phase",
-                    "output_contract": "synthesis_matrix" if is_synth else "independent_reviewer_section",
-                    "order": index + 1,
-                }
-            )
+            item = {
+                "agent": agent_file.removesuffix(".md"),
+                "prompt_path": prompt_path(workflow, agent_file),
+                "dispatch": "after_independent_reviews" if is_synth else "parallel_independent_review",
+                "independence_group": "synthesis" if is_synth else "reviewer_blind_phase",
+                "output_contract": "synthesis_matrix" if is_synth else "independent_reviewer_section",
+                "order": index + 1,
+            }
+            if mode == "full" and agent_file == "domain_reviewer_agent.md":
+                item["cross_model_reviewer_track"] = (
+                    "configured_requires_explicit_content_consent"
+                    if profile["cross_model_configured"]
+                    else "not_configured_single_family_disclosure_required"
+                )
+            plan.append(item)
         return plan
     if workflow == "academic-pipeline":
         return [

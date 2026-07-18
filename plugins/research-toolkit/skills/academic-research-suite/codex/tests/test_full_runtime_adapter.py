@@ -149,6 +149,37 @@ def test_cross_model_configuration_requires_dispatcher_consent_gate() -> None:
     assert delegated["profile"]["cross_model_handoff_status"] == (
         "dispatcher_transport_requires_explicit_request_and_consent"
     )
+    reviewer_2 = next(
+        item
+        for item in delegated["agent_team_plan"]
+        if item["agent"] == "domain_reviewer_agent"
+    )
+    assert reviewer_2["cross_model_reviewer_track"] == (
+        "configured_requires_explicit_content_consent"
+    )
+
+
+def test_v318_cache_controls_are_surfaced_without_changing_gate_semantics() -> None:
+    planner = _load_planner()
+    default = planner.plan_request("ars-cache-invalidate smith2024", env={})
+    assert default["profile"]["cache_stale_advisory_days"] == 30
+    assert default["profile"]["cache_revalidation_status"] == "cached_default"
+
+    requested = planner.plan_request(
+        "ars-cache-invalidate smith2024",
+        env={"ARS_CACHE_STALE_ADVISORY_DAYS": "0", "ARS_CACHE_REVALIDATE": "1"},
+    )
+    assert requested["profile"]["cache_stale_advisory_days"] == 0
+    assert requested["profile"]["cache_revalidation_requested"] is True
+    assert requested["profile"]["cache_revalidation_status"] == (
+        "live_bibliographic_revalidation_requested"
+    )
+
+    malformed = planner.plan_request(
+        "ars-cache-invalidate smith2024",
+        env={"ARS_CACHE_STALE_ADVISORY_DAYS": "not-a-number"},
+    )
+    assert malformed["profile"]["cache_stale_advisory_days"] == 30
 
 
 def test_ars_full_starts_pipeline_and_stops_at_dashboard_checkpoint() -> None:

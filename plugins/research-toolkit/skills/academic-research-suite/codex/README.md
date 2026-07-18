@@ -1,4 +1,4 @@
-# ARS Codex Full-Runtime Adapter
+# ARS-Codex Full-Runtime Adapter
 
 This directory is the Codex-only runtime adapter for
 `academic-research-suite`. Vendored upstream content remains under `ars/`; do
@@ -59,12 +59,18 @@ Instead it provides an explicit Codex orchestration contract:
 - pipeline orchestration stops at requested checkpoints;
 - Codex model routing uses the active model while preserving upstream
   `opus`/`sonnet` hints as metadata;
-- ARS v3.17 retains model tiering as advisory metadata; it is applied only
+- ARS v3.18 retains model tiering as advisory metadata; it is applied only
   when a Codex runtime provides explicit per-dispatch model selection;
 - canonical cross-model handoffs are validated and transported by the
   dispatching context, not by least-privilege owner roles;
+- the fixed Reviewer 2 substrate swap and Priority-1 re-review judge pass run
+  only after explicit provider configuration and content consent;
+- citation-cache staleness remains advisory-only, while live re-validation is
+  opt-in and surfaced in the route plan;
 - the v3.17 panel, degradation-registry, tools-allowlist, and pipeline-boundary
   validators remain available as vendored quality gates;
+- the upstream v3.18 SessionStart update reminder is vendored but not executed
+  by the Codex hook pack;
 - inline mode remains available and is the default.
 
 ## Verification
@@ -87,4 +93,6 @@ python3 scripts/check_cross_model_handoff_contract.py
 python3 scripts/check_degradation_registry.py
 python3 scripts/check_pipeline_boundary_semantics.py
 python3 scripts/check_tools_allowlist.py
+python3 -m pytest scripts/test_verification_cache.py scripts/test_verification_gate.py
+python3 -m pytest scripts/test_ars_update_check.py
 ```

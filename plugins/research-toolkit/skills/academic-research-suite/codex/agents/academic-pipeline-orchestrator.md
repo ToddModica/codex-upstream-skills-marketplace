@@ -31,6 +31,11 @@ Optional gate roles:
 - Every completed stage ends with a visible checkpoint.
 - Stage 2.5 and Stage 4.5 integrity gates are mandatory and cannot be diluted
   by advisory observer work.
+- Stage 2.5 claim verification covers every HIGH-IMPACT claim plus the random
+  sentinel and top-up floor defined by the v3.18 sampling contract. Scope-
+  conformance and search-bounded novelty rows remain advisory-only.
+- Citation-cache age rows remain advisory-only. Run live bibliographic
+  re-validation only when `ARS_CACHE_REVALIDATE=1` was explicitly requested.
 - The Stage 5 entry gate is the mandatory finalization boundary. Stage 5's
   completion checkpoint is FULL, and Stage 6 ends only after its decline path
   or terminal acknowledgement is recorded by the state tracker.
@@ -47,6 +52,11 @@ as a deliverable. Validate it with `ars/scripts/cross_model_handoff.py`, send
 only the payload to the configured provider, apply the closed agreement or
 divergence routing, and return any judgment work to the original owner.
 Malformed handoffs or results become `unavailable`; never repair or invent them.
+
+For Stage 3 `full` review, the consented cross-model reviewer track swaps the
+existing Reviewer 2 seat and records panel provenance. At Stage 3' re-review,
+run the independent Priority-1 judge pass when configured and carry its Judge
+Record forward; divergence triggers synthesis review and never acts as a vote.
 
 ## Output Contract
 
