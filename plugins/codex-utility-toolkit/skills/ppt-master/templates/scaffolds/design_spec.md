@@ -7,7 +7,7 @@
 | --- | --- |
 | Project Name | {{PROJECT_NAME}} |
 | Canvas Format | {{CANVAS_NAME}} ({{CANVAS_DIMENSIONS}}) |
-| Page Count | [fill] |
+| Page Count | [fill exact final count matching §IX] |
 | Target Audience | [fill] |
 | Communication Intent | [fill] |
 | Desired Audience Outcome | [fill] |
@@ -99,15 +99,10 @@
 | --- | --- | --- |
 | [fill] | [fill] | [fill] |
 
-## VII. Visualization Reference List
-
-| Page | Template | Path | Summary-quote | Usage |
-| --- | --- | --- | --- | --- |
-
 ## VIII. Image Resource List
 
-| Filename | Dimensions | Ratio | Purpose | Type | Layout pattern | Acquire Via | Status | Reference | text_policy | page_role |
-| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| Filename | Dimensions | Ratio | Purpose | Type | Layout pattern | Crop Policy | Acquire Via | Status | Reference | text_policy | page_role |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
 
 ## IX. Content Outline
 

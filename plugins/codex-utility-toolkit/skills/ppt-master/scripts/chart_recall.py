@@ -161,7 +161,13 @@ def _score_candidate(key: str, summary: str, tags: list[str]) -> tuple[int, list
     return score, matched_tags
 
 
-def recall_candidates(page: str, tags: list[str], limit: int) -> dict[str, object]:
+def recall_candidates(
+    page: str,
+    tags: list[str],
+    limit: int,
+    *,
+    force_semantic_fallback: bool = False,
+) -> dict[str, object]:
     """Recall a deterministic shortlist for one page."""
     charts = load_catalog()
     scored: list[tuple[int, str, str, list[str]]] = []
@@ -193,7 +199,7 @@ def recall_candidates(page: str, tags: list[str], limit: int) -> dict[str, objec
     else:
         confidence = "none"
 
-    return {
+    result: dict[str, object] = {
         "page": page,
         "semantic_tags": tags,
         "confidence": confidence,
@@ -201,9 +207,26 @@ def recall_candidates(page: str, tags: list[str], limit: int) -> dict[str, objec
         "no_template_match": {
             "allowed": True,
             "key": "no-template-match",
-            "instruction": "Use when every candidate conflicts with the page content shape or a Skip clause.",
+            "instruction": (
+                "Use when none of the bounded candidates fits the page structure. If the "
+                "shortlist may have missed a relevant catalog rule, rerun with "
+                "--semantic-fallback first. Keep this result out of Design Spec Section "
+                "VII and describe the chosen fallback in the page's Section IX block."
+            ),
         },
     }
+    if force_semantic_fallback:
+        result["semantic_fallback"] = {
+            "reason": "requested-after-bounded-review",
+            "instruction": (
+                "Semantically compare the page tags with every returned selection rule. "
+                "Choose one exact catalog key or keep no-template-match; lexical overlap "
+                "is not required in this review."
+            ),
+            "path_pattern": "templates/charts/{key}.svg",
+            "catalog": charts,
+        }
+    return result
 
 
 def _dedupe(values: list[str]) -> list[str]:
@@ -230,7 +253,12 @@ def _run_recall(args: argparse.Namespace) -> int:
         print("Error: recall requires 3-8 distinct non-empty --tag values.", file=sys.stderr)
         return 2
 
-    result = recall_candidates(page, tags, args.limit)
+    result = recall_candidates(
+        page,
+        tags,
+        args.limit,
+        force_semantic_fallback=args.semantic_fallback,
+    )
     print(json.dumps(result, ensure_ascii=False, indent=2, sort_keys=True))
     return 0
 
@@ -247,7 +275,8 @@ def _run_validate(args: argparse.Namespace) -> int:
     if invalid:
         print(
             "Error: replace each invalid key with a key returned by the recall command, "
-            "or record no-template-match without a page_charts entry.",
+            "or keep no-template-match out of Section VII and page_charts while "
+            "recording the custom fallback in the page's Section IX block.",
             file=sys.stderr,
         )
         return 1
@@ -276,6 +305,11 @@ def build_parser() -> argparse.ArgumentParser:
         default=6,
         metavar="3..8",
         help="Candidate count (default: 6).",
+    )
+    recall.add_argument(
+        "--semantic-fallback",
+        action="store_true",
+        help="Include the full catalog when bounded recall may have missed a semantic match.",
     )
     recall.set_defaults(handler=_run_recall)
 

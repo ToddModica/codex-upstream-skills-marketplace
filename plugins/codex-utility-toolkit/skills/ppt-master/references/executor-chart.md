@@ -4,7 +4,7 @@
 
 Conditional Executor authority for data charts, chart-catalog adaptations, chart verification markers, and eligible native chart/table replacement metadata.
 
-**Trigger**: load when `design_spec.md §VII` contains a chart/table visualization, `spec_lock.md page_charts` contains any row, or the current page carries any data-encoded chart or text-grid table. Mini charts, sparklines, inset charts, and small multiples count even when they are absent from `page_charts` or the chart catalog.
+**Trigger**: load when `design_spec.md §VII` contains a selected chart/table reference, `spec_lock.md page_charts` contains any row, or the current §IX page block carries any data-encoded chart or text-grid table. Mini charts, sparklines, inset charts, and small multiples count even when they are absent from `page_charts` or the chart catalog.
 
 ## 1. Reference Loading and Per-page Selection
 
@@ -15,18 +15,18 @@ For each selected `templates/charts/<key>.svg`, use its Skill-relative `referenc
 Before drawing each page, look up its entry in `page_charts` to decide which chart structure applies (the SVG itself was loaded in §1):
 
 - Entry present (e.g., `P09: timeline_horizontal`) → adapt the corresponding chart SVG already in context under §3; do not copy it verbatim. Use the selected §VII row and SVG; do not load the full chart catalog during execution.
-- No entry for this page → either no chart on this page, or a chart that didn't match any catalog template (Strategist's `no-template-match` fallback). Design the visualization from scratch using `design_spec.md §VII` for guidance.
-- Whole section absent → no chart pages in this deck.
+- No entry for this page → no catalog reference was selected. Follow the current §IX `Visualization` / `Layout`; design any declared custom visualization from scratch without inventing a §VII reference.
+- Whole section absent → no catalog references were selected; §IX may still contain custom data charts or tables.
 
 ---
 
 ## 2. Chart and Native-data Authoring
 
-### 2.1 Chart Plot-Area Marker (MANDATORY on every chart page)
+### 2.1 Chart Plot-Area Marker (MANDATORY on planned data-chart pages)
 
-> The [`verify-charts`](../workflows/stages/verify-charts.md) stage enumerates chart pages from `design_spec.md §VII`, then reads each page's plot-area marker to feed `svg_position_calculator.py`. A missing marker invokes that stage's declared fallback and adds avoidable derivation work.
+> The [`verify-charts`](../workflows/stages/verify-charts.md) stage enumerates data-driven chart pages from `design_spec.md §IX`, cross-checks selected §VII references when present, then reads each page's plot-area marker to feed `svg_position_calculator.py`. A missing marker invokes that stage's declared fallback and adds avoidable derivation work.
 
-**Hard rule**: every SVG page that contains a data visualization chart includes a plot-area marker inside `<g id="chartArea">`, placed **after axis lines** and **before the first data element** (bar, line, area, point).
+**Hard rule**: every page whose §IX `Visualization` declares data-driven chart geometry includes a plot-area marker inside `<g id="chartArea">`, placed **after axis lines** and **before the first data element** (bar, line, area, point). A legacy §VII data-chart row counts when its page block lacks that declaration. An incidental microvisual not promoted in §IX needs no marker; if its geometry must enter `verify-charts`, return upstream and update the owning §IX page block first.
 
 **Rectangular plot area** (bar / horizontal_bar / grouped_bar / stacked_bar / line / area / stacked_area / scatter / waterfall / pareto / butterfly):
 
@@ -53,7 +53,7 @@ Before drawing each page, look up its entry in `page_charts` to decide which cha
 | `cx, cy` | Center point of pie/donut/radar (accounting for `transform="translate()"`) |
 | `r` | Outer radius of the chart |
 
-**Per-page verification** — after writing each chart SVG, confirm the marker exists:
+**Per-page verification** — after writing each planned data-chart SVG, confirm the marker exists:
 
 ```bash
 rg -n "chart-plot-area" <project_path>/svg_output/<current_page>.svg
@@ -65,15 +65,15 @@ rg -n "chart-plot-area" <project_path>/svg_output/<current_page>.svg
 > the same library do not use a plot-area marker.
 Technical SVG/PPT constraints remain in [`shared-standards-core.md`](./shared-standards-core.md).
 
-### 2.2 PowerPoint-Native Chart/Table Replacement Marker (MANDATORY on eligible data-chart and text-grid table pages)
+### 2.2 PowerPoint-Native Chart/Table Replacement Marker (MANDATORY on planned native-ready objects)
 
-> `svg_to_pptx.py --native-charts-and-tables` replaces marked groups with PowerPoint-native Chart/Table objects (charts get an embedded Excel workbook). Markers stay dormant in the default export, whose SVG children become independently editable DrawingML shapes, but a deck without markers can never form data-backed native Chart/Table objects. Write the marker at draw time: the data is already in hand, and recovering it later costs a full re-read pass.
+> `svg_to_pptx.py --native-charts-and-tables` replaces marked groups with PowerPoint-native Chart/Table objects (charts get an embedded Excel workbook). Markers stay dormant in the default export, whose SVG children become independently editable DrawingML shapes. Prepare this optional capability for planned independent data objects, not every numeric embellishment.
 
-**Hard rule**: before deciding whether a chart or table is eligible for native replacement, load [`native-data-interface.md`](./native-data-interface.md). Every data chart whose type appears in that authority's **Supported chart types** list gets `data-pptx-replace-with="chart"` plus one `<metadata type="application/json">` JSON child on its top-level `<g>`, transcribing the same data just plotted. Every pure text-grid data table gets `data-pptx-replace-with="table"` the same way, transcribing all visible cell text into `columns` / `rows`. The parent marker determines the JSON schema; do not duplicate a chart/table kind on the metadata child.
+**Hard rule**: load [`native-data-interface.md`](./native-data-interface.md) for each independent data chart or pure text-grid table whose §IX page block says `Native-ready: yes`. A supported data chart then gets `data-pptx-replace-with="chart"` plus one JSON `<metadata>` child; a pure text-grid table gets the table form, transcribing all plotted data or visible cells. `no` stays ordinary SVG even when a catalog reference contains a marker. For legacy specs only, use the matching §VII value when §IX has no field. Missing, conflicting, or invalid values return upstream; Executor never infers eligibility. The parent marker selects the schema.
 
-**MUST — atomic authoring**: Treat the visible SVG fallback, the parent `data-pptx-replace-with` marker, and its JSON `<metadata>` child as one object. Write all three in the same SVG edit while the plotted data is in context. A supported chart or eligible table is unfinished if either the marker or metadata is missing; do not defer either one to `verify-charts`, the final quality gate, or export.
+**MUST — atomic authoring**: For each native-ready object, treat the visible SVG fallback, the parent `data-pptx-replace-with` marker, and its JSON `<metadata>` child as one object. Write all three in the same SVG edit while the data is in context. Do not defer the marker or metadata to `verify-charts`, the final quality gate, or export.
 
-**Hard rule — eligibility follows data semantics**: Size, point count, visual prominence, page role, catalog match, and the current export mode do not change eligibility. A two-point mini line chart, sparkline, chart inset, KPI-card trend, or small multiple that encodes recoverable categories/values still gets its own marked top-level `<g>` and metadata payload when its chart type is supported. Decorative strokes and arrows without recoverable chart data remain ordinary SVG geometry.
+**Hard rule — eligibility follows the plan**: A two-point line or small multiple gets metadata only when its §IX page block explicitly plans it as an independent object with `Native-ready: yes`. A sparkline, inset, KPI-card trend, or other incidental microvisual stays ordinary SVG even when values are recoverable. Changing eligibility requires upstream repair.
 
 Generated authoring MUST omit `data-pptx-import-source` and
 `data-pptx-fallback-sha256`: those attributes record imported-PPTX provenance
@@ -82,7 +82,7 @@ catalog or reusable template; normal content edits would make it stale.
 
 `data-pptx-replace-with` is a **data-backed replacement claim**, not a generic label for a group that contains numbers and not a marker for ordinary PowerPoint shapes or connectors. Add it only when the matching JSON payload can be written in the same edit; if the object is meant to remain SVG geometry, do not add the marker.
 
-- Chart types absent from that list and conceptual/diagrammatic graphics (process flows, cycles, quadrant cards, timelines, or a KPI card container) get **no marker** — `svg_quality_checker.py` rejects unsupported marker types. A supported data chart nested visually inside one of those compositions still gets its own marker.
+- Chart types absent from that list and conceptual/diagrammatic graphics (process flows, cycles, quadrant cards, timelines, or a KPI card container) get **no marker** — `svg_quality_checker.py` rejects unsupported marker types. A supported data chart nested inside one of those compositions gets its own marker only when its §IX page block explicitly plans that object as `Native-ready: yes`.
 - Canonical rectangular merged text cells may carry a table marker by putting anchor-only `row_span` / `col_span` in metadata and leaving covered cells blank. Nonrectangular/overlapping merges, nonblank covered cells, and graphical cells (icons, harvey balls, rating dots) get **no table marker** and stay on the SVG fallback route.
 - Transcribe, don't restyle: `categories` / `series[].values` are the numbers just plotted; `style.colors` copies the series HEX values already rendered on the page, whether they use a recurring `spec_lock.colors` anchor or a contextual page-local color.
 - Data-point color: when a single column/bar series uses data-point colors in the fallback, copy those fills into `series[].point_colors` in category order.
@@ -93,11 +93,11 @@ catalog or reusable template; normal content edits would make it stale.
 - Value-axis labels: when the fallback keeps category labels but intentionally omits numeric value-axis tick labels, set `show_value_axis_labels: false`.
 - Freeform chart text: transcribe center labels, source notes, and other in-chart annotations as companion `caption` / `note` / `notes` entries with explicit slide-coordinate bounds; do not rely on fallback `<text>` children to survive native export.
 - Native chart typography mirrors the SVG fallback. Copy the fallback's shared chart font into `style.font_family` and visible chart text sizes into the matching metadata fields (`title_font_size`, `subtitle_font_size`, `axis_font_size`, `note_font_size`, etc.) only when role sizes differ; otherwise let the exporter infer them from visible fallback text. When a visible chart title, subtitle, or axis title needs its own size/color/font, write that field as an object with `text`, `font_size`, `font_family`, and `color`. Use `axis_title_font_size`, `legend_font_size`, or companion per-entry `font_size` only when the fallback visibly uses a separate size.
-- Native table typography mirrors the SVG fallback. Write `style.font_family` and `style.font_size` from the visible table text; use `header_font_size` or per-cell `font_size` only when the fallback visibly does so. If the fallback has no explicit table font, fall back to the deck body family and locked body size from `spec_lock.md typography`.
+- Native table typography mirrors the SVG fallback. Write `style.font_family` and `style.font_size` from the visible table text; use `header_font_size` or per-cell `font_size` only when the fallback visibly does so. If the fallback has no explicit table font, fall back to the deck body family and declared body anchor from `spec_lock.md typography`.
 - The marker group's transform stays translate/scale only (no rotate / matrix / skew).
 - Visual parity is not a goal: the SVG drawing remains the designed visual and exports as editable DrawingML shapes; the native object is the data-backed counterpart with PowerPoint's chart/table-specific model. Never simplify the SVG design to match what a native object could show.
 
-**Per-page verification** — after writing each eligible data-chart or text-grid table page, enumerate the eligible objects and confirm a one-to-one match: every object has one parent marker and exactly one JSON metadata child. Finding one marker somewhere on a page is insufficient when the page contains multiple eligible objects.
+**Per-page verification** — after writing a page with planned native-ready objects, enumerate those objects and confirm a one-to-one match: every object has one parent marker and exactly one JSON metadata child. Finding one marker somewhere on a page is insufficient when the page contains multiple planned objects.
 
 ```bash
 rg -n 'data-pptx-replace-with="(chart|table)"|<metadata type="application/json">' <project_path>/svg_output/<current_page>.svg
@@ -113,13 +113,14 @@ Chart SVGs referenced in **VII. Visualization Reference List** are loaded once t
 **Hard rule**: adapt the loaded chart SVG; do not improvise from memory and do not replicate verbatim. Apply the active Design Spec and `spec_lock.md`; preserve the visualization type and data semantics.
 
 **Adaptation rules**:
-- **Preserve**: visualization type (bar/line/pie/timeline/process/framework…), information relationships, data encoding, structural grouping, and capacity
+- **Preserve**: visualization type (bar/line/pie/timeline/process/framework…), information relationships, data encoding, and every content obligation in the active Design Spec
+- **Selected key, flexible realization**: keep the Strategist-selected chart key/type; its preview grouping, frame count, item count, capacity, and geometry are adaptable to the actual authored content
 - **Carry forward**: every planned label, value, unit, status, source, and explanatory block; never shorten or drop content to imitate a lighter catalog preview
 - **Adapt**: project data and labels, dimensions, axes, legend, and spacing as the authored content requires
 - **Project-owned**: palette, typography, container treatment, effects, background, and page chrome; catalog preview values are fallbacks, never defaults
 - **Bound final body modules**: add or revise root-coordinate `data-pptx-bounds` on every visible direct root `<g>` copied into the final page; nested groups need none, chart geometry and local references are not content-boundary inputs, and catalog reference warnings never waive the final-page contract
-- **Adjust with fidelity**: composition, axis ranges, and grid may change within the project contract only when no content, relationship, hierarchy, or capacity is lost
-- **Forbidden**: changing visualization type without spec justification; omitting data points or structural elements from the outline
+- **Adjust with fidelity**: composition, axis ranges, grouping, and grid may change when the actual content, relationships, hierarchy, and data encoding remain complete
+- **Forbidden**: changing visualization type without spec justification; omitting planned data points, labels, relationships, or explanatory content to fit the catalog preview
 
 > Templates: `templates/charts/`. The Strategist's selected key is already locked in `page_charts`; execution opens only that key's SVG.
 
@@ -127,6 +128,6 @@ Chart SVGs referenced in **VII. Visualization Reference List** are loaded once t
 
 Coordinate calibration runs as a **conditional post-generation stage**, not inside the Executor authoring loop. After SVG generation completes, if the deck contains data charts, run [`verify-charts`](../workflows/stages/verify-charts.md) before post-processing.
 
-The executor's only obligation here is upstream: embed the `<!-- chart-plot-area ... -->` marker on every chart page during initial draft (§2.1). Verify-charts enumerates chart pages from `design_spec.md §VII` (authoritative deck plan) and uses the marker to feed `svg_position_calculator.py`.
+The executor's only obligation here is upstream: embed the `<!-- chart-plot-area ... -->` marker on each §IX-planned data-chart page during initial draft (§2.1). Verify-charts enumerates those pages from the authoritative page roster and uses the marker to feed `svg_position_calculator.py`.
 
 > Do NOT run `svg_position_calculator.py` during the initial draft. The calculator calibrates already-generated SVGs against their declared plot areas; running it before the SVG exists has nothing to compare against.

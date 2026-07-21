@@ -4,6 +4,20 @@
 > 协议规范（什么是 intake、为什么做）见 `./intake.md`，prompt 本体见 `./intake-prompt.md`。
 > 这份 README 只解决"具体怎么跑一次"。
 
+## 仓库完整性硬检查
+
+`check_repo.py` 只检查仓库结构有没有漂移，不判断文本有没有 AI 味。在仓库根目录运行：
+
+```bash
+python3 automation/check_repo.py
+```
+
+- `blind-sync`：确认 benchmark 与两份盲测生成物同步。
+- `counts`：核对 README、评测文档和批次表里的计数锚点。
+- `links`：检查 Markdown 和 README HTML 中的相对链接目标是否存在。
+- `case-ids`：检查正文引用的 SF、SNF、RS 编号是否存在。
+- `meta`：检查 skill frontmatter 必填字段和 plugin JSON 格式。
+
 ## 什么时候跑
 
 - 公开讨论（X / Linux.do / V2EX / 知乎 / Reddit 等）出现一批新的 AI 姿态链

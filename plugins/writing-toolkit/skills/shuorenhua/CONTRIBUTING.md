@@ -91,6 +91,7 @@
 2. 更新 `CHANGELOG.md`
 3. 如果改了规则逻辑，同步更新 `SKILL.md` 和对应的 `references/` 文件
 4. 如果改了 benchmark 的数量、口径或判分逻辑，同步更新 `evals/run-eval.md` 和结果文档引用
+5. 提交前在仓库根目录运行 `python3 automation/check_repo.py`，全绿后再提；新增「N 条 / N cases」类计数文案时，同时登记到脚本的 `ANCHORS` 表
 
 ## 维护者：Community Observation Intake
 

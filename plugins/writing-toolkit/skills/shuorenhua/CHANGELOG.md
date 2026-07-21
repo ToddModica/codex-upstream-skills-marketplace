@@ -1,5 +1,31 @@
 # Changelog
 
+## [2.0.2] - 2026-07-22 — 仓库完整性硬检查
+
+### Added
+- 新增 `automation/check_repo.py`：零依赖检查盲测生成物同步、计数锚点、相对链接、用例编号引用和元数据，任一检查前提失效时直接失败。
+- `automation/eval/make_blind.py` 新增 `--check` 模式，在内存生成并逐字节比对两份盲测文件；默认生成行为不变。
+- 新增 GitHub Actions `check` workflow，在 main push 和 pull request 上运行 `python3 automation/check_repo.py`。
+
+### Changed
+- `CONTRIBUTING.md` 的 PR 规范补提交前自检命令和新增计数文案时登记 `ANCHORS` 的要求。
+- `automation/README.md` 补仓库完整性硬检查的定位、命令和五项检查说明。
+
+### Tested
+1. 仓库根目录运行 `python3 automation/check_repo.py` 通过：80 用例 / 19 样本 / 24 锚点 / 59 链接。
+2. 从 `automation/` 目录运行结果与根目录逐字一致，exit 0。
+3. 默认运行 `make_blind.py` 后 `git diff --exit-code -- evals/` 通过，生成逻辑字节不变。
+4. 删除 `benchmark-map.md` 一行映射后，`[blind-sync]` 正确报出该文件，exit 1。
+5. 删除 benchmark 最后一条用例且不重跑生成脚本后，`[blind-sync]` 失败，`[counts]` 在 README 等多处报出 80/79 和 35/34 失配。
+6. 把一条 benchmark 用例编号改成重复编号后，`[blind-sync]` 透传「用例编号有重复」，exit 1。
+7. README benchmark 徽章 80 改 81 后，`[counts]` 定位到 `README.md:23`，exit 1。
+8. 删除 README「当前评测集共 80 条」锚点后，`[counts]` 报预期命中 1 次、实际 0 次，fail-closed 生效。
+9. 临时改名 `references/examples.md` 后，`[links]` 定位 README 和 SKILL.md 的断链，exit 1。
+10. 在 `references/operation-manual.md` 插入 `SF-99` 后，`[case-ids]` 定位到新增行，exit 1。
+11. 删除 SKILL.md frontmatter 的 `description` 后，`[meta]` 报字段为空，exit 1。
+12. 在 `.claude-plugin/plugin.json` 插入尾逗号后，`[meta]` 定位 JSON 解析错误，exit 1。
+13. workflow 按零依赖环境目检通过；CI 首跑待维护者 push 后在 Actions 页确认。
+
 ## [2.0.0] - 2026-07-15 — Plugin 一键安装 / 分发铺设
 
 ### Added

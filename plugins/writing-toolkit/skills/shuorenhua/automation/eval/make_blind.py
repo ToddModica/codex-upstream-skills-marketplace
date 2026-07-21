@@ -62,8 +62,8 @@ def parse_cases(text):
     return cases
 
 
-def main():
-    root = Path(__file__).resolve().parents[2]
+def render_outputs(root):
+    """生成两份盲测文件的文本，不写盘。"""
     src = root / "evals" / "benchmark.md"
     cases = parse_cases(src.read_text(encoding="utf-8"))
 
@@ -100,8 +100,38 @@ def main():
         blind += [f"### {bid} | {scene}", "", quote, ""]
         maprows.append(f"| {bid} | {cid} | {scene} |")
 
-    (root / "evals" / "benchmark-blind.md").write_text("\n".join(blind).rstrip() + "\n", encoding="utf-8")
-    (root / "evals" / "benchmark-map.md").write_text("\n".join(maprows) + "\n", encoding="utf-8")
+    return cases, "\n".join(blind).rstrip() + "\n", "\n".join(maprows) + "\n"
+
+
+def main():
+    args = sys.argv[1:]
+    if args not in ([], ["--check"]):
+        sys.exit("用法：python3 automation/eval/make_blind.py [--check]")
+
+    root = Path(__file__).resolve().parents[2]
+    cases, blind, mapping = render_outputs(root)
+    outputs = {
+        root / "evals" / "benchmark-blind.md": blind,
+        root / "evals" / "benchmark-map.md": mapping,
+    }
+    if args == ["--check"]:
+        stale = [
+            path.relative_to(root).as_posix()
+            for path, expected in outputs.items()
+            if not path.is_file() or path.read_bytes() != expected.encode("utf-8")
+        ]
+        if stale:
+            sys.exit(
+                "盲测生成物陈旧或缺失，重跑 python3 automation/eval/make_blind.py："
+                + ", ".join(stale)
+            )
+        print(f"盲测生成物检查 OK：{len(cases)} 条")
+        return
+
+    for path, text in outputs.items():
+        path.write_text(text, encoding="utf-8")
+    sf = sum(1 for c in cases if c[0].startswith("SF-"))
+    snf = len(cases) - sf
     print(f"生成完成：{len(cases)} 条（{sf} SF + {snf} SNF）→ evals/benchmark-blind.md, evals/benchmark-map.md")
 
 

@@ -1,6 +1,6 @@
 {
   "name": "writing-toolkit",
-  "version": "0.1.3",
+  "version": "0.1.4",
   "description": "Chinese and English prose editing skills with natural-language style checks.",
   "author": {
     "name": "research-toolkit maintainers"

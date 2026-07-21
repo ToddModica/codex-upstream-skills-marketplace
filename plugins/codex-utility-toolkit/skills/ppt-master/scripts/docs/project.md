@@ -1,8 +1,8 @@
 # Project Tools
 
-> **Import boundary**: copy out-of-repository sources by default to protect user
-> files; move in-repository sources by default to avoid leaving accidental
-> commit artifacts. Explicit `--copy` / `--move` flags override the default.
+> **Import boundary**: move only sources already under the repository's
+> `projects/` tree. Copy every other local path, even when `--move` is supplied.
+> Use `--copy` to preserve a projects-local source.
 
 Project tools create, validate, and inspect the standard PPT Master workspace.
 
@@ -13,8 +13,8 @@ Main entry point for project setup and validation.
 ```bash
 python3 scripts/project_manager.py init <project_name> --format ppt169
 python3 scripts/project_manager.py import-sources <project_path> <source1_or_dir> [<source2_or_dir> ...]
-python3 scripts/project_manager.py scaffold-spec <project_path>
-python3 scripts/project_manager.py scaffold-lock <project_path>
+python3 scripts/project_manager.py scaffold-spec <project_path>  # optional manual helper
+python3 scripts/project_manager.py scaffold-lock <project_path>  # optional manual helper
 python3 scripts/project_manager.py validate <project_path>
 python3 scripts/project_manager.py info <project_path>
 python3 scripts/project_manager.py page-context <project_path> P07 [--pretty] [--record-usage]
@@ -22,20 +22,23 @@ python3 scripts/project_manager.py page-context-report <project_path>
 ```
 
 Notes:
-- Files outside the repo are copied into `sources/` by default
-- With `--move`, files outside the repo are moved into `sources/`
+- Files outside `projects/` are always copied into `sources/`
+- `--move` applies only to sources under the repository's `projects/` tree
 - Directory inputs are expanded non-recursively. After Step 1 conversion,
   pass the source file/directory once when generated Markdown lives beside the
   original source. If Step 1 used `-o` to write Markdown elsewhere, pass both
   the original source path/directory and the Markdown output path/directory.
-- Under move semantics, a supplied source directory left strictly empty after
-  import (or empty from the start) is removed; a directory that still holds any
-  file or subdirectory is left untouched. `--copy` never removes directories.
-- Files already inside the repo are moved into `sources/` by default (with a stderr
-  note), to avoid leaving unintended artifacts that could be committed by mistake.
-  Pass `--copy` to force a copy for in-repo sources instead.
+- A projects-local supplied source directory left strictly empty after import
+  (or empty from the start) is removed; every directory outside `projects/`
+  remains untouched. `--copy` never removes directories.
+- Files already under `projects/` move into `sources/` by default. Pass `--copy`
+  to preserve them in place.
 - `--move` and `--copy` are mutually exclusive.
-- `scaffold-spec` creates `design_spec.md` from
+- Normal Generate authoring reads `templates/design_spec_reference.md`, writes
+  the complete `design_spec.md` from scratch, then reads
+  `templates/spec_lock_reference.md` and writes the complete lock projection.
+  It does not call either scaffold command.
+- Optional `scaffold-spec` creates `design_spec.md` from
   `templates/scaffolds/design_spec.md`; `scaffold-lock` creates `spec_lock.md`
   from `templates/scaffolds/spec_lock.md`. Both substitute project/canvas
   metadata deterministically and refuse to overwrite an existing artifact.
@@ -55,8 +58,10 @@ Notes:
   the human-readable brief; the lock schema owns machine execution values. For
   structured template use, strict input prototypes must match their assigned
   Master/Layout; adaptive input prototypes retain the assigned Master while a
-  new output Layout is validated only after its generated SVG exists. Versioned
-  scaffolds carry the schema marker. Markerless legacy artifacts are left on
+  new output Layout already declared by Strategist is cross-validated after its
+  generated SVG exists. Versioned
+  Direct-authored current artifacts and optional scaffolds carry the schema
+  marker. Markerless legacy artifacts are left on
   their prior validation path with a warning;
   malformed or unsupported markers are errors.
 - PPTX-family inputs are enriched automatically under `analysis/` with
@@ -77,10 +82,14 @@ The output deliberately repeats the bounded `global` anchor set on every
 page as a cross-page anchor set, not a color/font allowlist. `lock_source` binds that projection to the current
 `spec_lock.md` SHA. `page_context` contains the current §IX brief, rhythm,
 resources, and conditional template/chart assignment. `reference_set` contains
-only `kind`, scoped path, SHA, and `once-per-execution-context` policy for the
-project/template Design Specs and selected prototype/chart SVGs. A model reads
-a referenced file only when that exact path + SHA is absent from its active
-context or has changed, then reuses the retained understanding on later pages.
+`kind`, scoped path, SHA, and `once-per-execution-context` policy for the
+project/template Design Specs and selected prototype/chart SVGs. The project
+Design Spec additionally carries
+`same_context_edit_policy: targeted-readback-and-rebind`: when the current main
+agent makes a bounded repair that preserves roster/order/identity/communication,
+it reads back only the exact changed fragments,
+validates, reruns `page-context`, and binds the verified delta to the new SHA.
+Fresh, external, unknown, or mismatched changes still require a complete read.
 
 The deprecated `--bundle` flag remains accepted as a compatibility no-op. It
 never appends a Design Spec, prototype SVG, chart SVG, manifest, or text-slot
@@ -123,8 +132,8 @@ Examples:
 
 ```bash
 python3 scripts/project_manager.py init my_presentation --format ppt169
-python3 scripts/project_manager.py scaffold-spec projects/my_presentation_ppt169_20251116
-python3 scripts/project_manager.py scaffold-lock projects/my_presentation_ppt169_20251116
+python3 scripts/project_manager.py scaffold-spec projects/my_presentation_ppt169_20251116  # optional
+python3 scripts/project_manager.py scaffold-lock projects/my_presentation_ppt169_20251116  # optional
 python3 scripts/project_manager.py validate projects/my_presentation_ppt169_20251116
 python3 scripts/project_manager.py info projects/my_presentation_ppt169_20251116
 python3 scripts/project_manager.py page-context projects/my_presentation_ppt169_20251116 P07 --record-usage
