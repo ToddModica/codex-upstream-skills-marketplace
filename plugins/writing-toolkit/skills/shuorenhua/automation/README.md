@@ -18,6 +18,16 @@ python3 automation/check_repo.py
 - `case-ids`：检查正文引用的 SF、SNF、RS 编号是否存在。
 - `meta`：检查 skill frontmatter 必填字段和 plugin JSON 格式。
 
+## Star 曲线自绘
+
+`gen_star_history.py` 拉本仓库 stargazer 时间戳，重绘 README 里的 star 增长曲线。产物不进 main：`.github/workflows/star-history.yml` 每天 09:41（北京时间）生成并提交到 `star-data` 分支，README 引用该分支的 raw 链接。本地手动跑（依赖已登录的 gh CLI）：
+
+```bash
+python3 automation/gen_star_history.py /tmp/star-growth.svg
+```
+
+换掉 star-history.com 外链的原因：其后端拉 GitHub 数据高峰期超时（HTTP 500，2026-07-22 实测连 cli/cli 都渲染失败），外加新增的 URL 小写化 301 跳转，裂图不可控。发版标注写死在脚本 `EVENTS` 里，大版本发布后记得补一条。
+
 ## 什么时候跑
 
 - 公开讨论（X / Linux.do / V2EX / 知乎 / Reddit 等）出现一批新的 AI 姿态链

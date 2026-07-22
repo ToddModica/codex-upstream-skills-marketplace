@@ -248,9 +248,9 @@ v1.9.0 起 benchmark 改为双模型实跑口径（Codex + Claude 交叉判分�
 - [humanizer](https://github.com/blader/humanizer)：英文 AI 模式分类
 - [avoid-ai-writing](https://github.com/conorbronsdon/avoid-ai-writing)：AI 写作问题分类和严重度参考
 
-## Star History
+## Star 增长
 
-[![Star History Chart](https://api.star-history.com/svg?repos=MrGeDiao/shuorenhua&type=Date)](https://www.star-history.com/#MrGeDiao/shuorenhua&Date)
+[![「说人话」star 增长曲线](https://raw.githubusercontent.com/MrGeDiao/shuorenhua/star-data/star-growth.svg)](https://github.com/MrGeDiao/shuorenhua/stargazers)
 
 ## 许可
 
