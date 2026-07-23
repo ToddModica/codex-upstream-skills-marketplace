@@ -34,13 +34,13 @@
 2. 再按需读取 `references/` 下的文件，补齐短语、结构、边界和误杀防护
 3. 然后读取 `./evals/benchmark.md`，对其中每一条测试用例执行评测
 
-### 对 Should Fix（SF-01 到 SF-45）：
+### 对 Should Fix（SF-01 到 SF-46）：
 - 先判断主场景（chat / status / docs / public-writing）和问题类型
 - 判断改写档位（minimal / standard / aggressive）
 - 判断 scope（structural / bounded / in-place）；长 `public-writing` 默认 `bounded`（整句空话进删除清单、实句句内洗、不并句不重排）；用户要求完全原样、或样本明确标为 `Long-form / in-place` 时，按 `in-place` 的句内改写边界处理
 - 回读先做保真回读；只有第一遍已经保住事实、但仍有明显残留味时，才再做 `Residual Audit`
 - 第二遍固定只查 5 件事：开场残留、总结残留、narrator 残留、空泛判断残留、句长过匀
-- 按规则处理原文：默认输出改写后的文本；如果该样本按 `audit-only` 通过，允许只输出缺来源 / 缺归属的风险说明，不强行给整段重写
+- 按规则处理原文：默认输出改写后的文本；无源论断按 `audit-only` 处理时，对该论断输出缺来源 / 缺归属的风险说明即可、不强行改写它；但 `audit-only` 只约束无源论断本身，同段其他病灶仍按各自规则清理，不能整段只输出风险说明
 - 列出命中项（问题类型 + 命中的具体词/结构）
 - 判断是否通过（✅ 通过 / ⚠️ 部分通过 / ❌ 未通过），简短说明理由
 - 对无源引用类 SF 用例，额外按场景判定：`public-writing / chat` 默认以删掉无证据权威铺垫为 `✅`；`docs / status` 默认以明确标注缺来源且不伪装成已证实为 `✅`
@@ -48,29 +48,37 @@
 - 对 `Scene Packs` 类 SF 用例，额外判断是否命中 `README / release-note / forum-post / issue-reply` 子场景，并按发布目的收束语气
 - 对 `Long-form / in-place` 类 SF 用例，额外检查是否保留句数、段落顺序和关键转场；如果删整句、合并相邻句、重排段落，记 `❌`
 
-### 对 Should NOT Fix（SNF-01 到 SNF-35）：
+### 对 Should NOT Fix（SNF-01 到 SNF-36）：
 - 判断这条文本为什么不该改
 - 如果保持原样或只做最小无害调整 → ✅ 通过
 - 如果错误修改了术语、系统主语、技术报告、引用原文、边界案例中的合理表达 → ❌ 误杀，说明误杀点
 - 对 `Scene Packs` 类 SNF 用例，额外确认没有把已经直接的 README、release note、forum post、issue reply 误改成另一种场景
 - 对 `Long-form / in-place` 类 SNF 用例，额外确认没有把承担节奏的重复、承接句或转场句删掉
 
+### 判分分层（2026-07-23 起）：
+
+分层与发布门槛的单源见 [benchmark-tiers.md](./benchmark-tiers.md)。判分拆两列，第二列按用例类型复用：
+
+- 硬约束列（全部用例）：protected spans 漂移（含 code-context 里的真实运行行为、适用条件和边界）、编造事实/来源/数据、scope 越界（in-place 删句/并句/重排，bounded 并句或删除清单混实句）、责任主体或归属改变、引用与用户指令边界破坏、无源数字/时间跨度降格——任一命中记 ❌，否则 ✅。SNF 普通误杀不在本列记失败；只有涉及编造或受保护片段破坏的误杀才同时记硬约束 ❌。
+- 风格 / SNF 误杀列：SF 按各用例 `预期` 判 ✅/⚠️/❌；SNF 保持原样或只做最小无害调整记 ✅，发生误杀记 ❌。L3 观察用例（SF-15 / SF-40 / SF-42）按可接受集判：no-op 并给出放行理由、或按预期方向改写，均记 ✅；只有硬约束列失败才阻塞发布。
+
 ### 最终汇总：
 输出一个汇总表格：
 
 ```text
-| 用例 | 类型 | 结果 | 备注 |
-|------|------|------|------|
-| SF-01 | Should Fix | ✅/⚠️/❌ | ... |
-| ... | ... | ... | ... |
-| SNF-01 | Should NOT Fix | ✅/❌ | ... |
-| ... | ... | ... | ... |
+| 用例 | 类型 | 硬约束 | 风格 / SNF 误杀 | 备注 |
+|------|------|--------|------------------|------|
+| SF-01 | Should Fix | ✅/❌ | ✅/⚠️/❌ | ... |
+| ... | ... | ... | ... | ... |
+| SNF-01 | Should NOT Fix | ✅/❌ | ✅/❌ | ... |
+| ... | ... | ... | ... | ... |
 ```
 
 并给出：
-- SF 通过率：X/45
-- SNF 误杀率：X/35
-- 是否达到目标：SF > 90%，SNF 误杀率 < 10%
+- SF 通过率：X/46
+- SNF 误杀率：X/36
+- 硬约束失败清单：<编号列表；没有就写“无”>
+- 是否达到发布门槛：硬约束失败 0 且 SNF 误杀率 < 10%；SF 风格通过率按模型报告并与上一版对比，不设统一 90% 线（门槛全文见 [benchmark-tiers.md](./benchmark-tiers.md)）
 
 **注意：**
 - 不要误伤系统主语、技术术语、学术被动、真人 debug 对话等已知边界
@@ -104,4 +112,4 @@ codex exec -C . --sandbox read-only \
 2. 把 `SKILL.md`、`references/` 下的文件和 `evals/benchmark.md` 的内容一起贴给模型
 3. token 不够时，优先保留 `SKILL.md` + `benchmark.md` + `scene-packs.md` + `severity.md` + `boundary-cases.md`
 
-注意：token 窗口较短的模型可能无法一次跑完 80 条，可以分批（先跑 SF，再跑 SNF）。
+注意：token 窗口较短的模型可能无法一次跑完 82 条，可以分批（先跑 SF，再跑 SNF）。

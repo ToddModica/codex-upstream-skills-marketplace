@@ -1,5 +1,7 @@
 # Scene Packs / 可直接发场景包
 
+> 本文件是解释、示例与操作细则；行为合同的单源是 `SKILL.md`，两处表述不一致时以 `SKILL.md` 为准。
+
 Scene Packs 是面向可发布文本的子场景策略。它不替代 [场景禁改表](./scene-guardrails.md)、[Protected Spans](./protected-spans.md) 或 `Tier` 判断；只要文本本身像 README、release note、forum post 或 issue reply，就进一步判断“这段应该像哪一种发布文本”。
 
 使用顺序：
@@ -31,6 +33,7 @@ Scene Packs 是面向可发布文本的子场景策略。它不替代 [场景禁
 - `深度赋能`
 - `内容生产链路`
 - `价值闭环`
+- 没有具体能力或证据支撑的 `真正能 / 做快做稳 / 更像人写的` 等自我宣传结果句
 - 只说“先进 / 智能 / 全方位”但不说具体做什么的句子
 
 默认力度：

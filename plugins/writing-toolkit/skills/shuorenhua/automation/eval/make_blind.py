@@ -15,7 +15,8 @@ import re
 import sys
 from pathlib import Path
 
-# 固定种子保证生成可复现；换种子会重排盲测编号，跨版本批次不可直接对比
+# 固定种子保证同一用例集合可复现；换种子或增删用例都会重排盲测编号，
+# 跨版本批次必须查当版 benchmark-map.md，不能直接沿用旧 B 编号
 SEED = 20260711
 
 # rubric 标签白名单：SF 必须是预期/Expected，SNF 必须是理由/Reason，

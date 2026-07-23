@@ -24,7 +24,7 @@ ANCHORS = (
     ("README.md", r"^\| SF \| (\d+) \|", "sf", 1),
     ("README.md", r"^\| SNF \| (\d+) \|", "snf", 1),
     ("README.md", r"^\| 场景样本 \| (\d+) \|", "rs", 1),
-    ("README.md", r"an (\d+)-case model-tested benchmark", "total", 1),
+    ("README.md", r"an (\d+)-case benchmark", "total", 1),
     ("evals/run-eval.md", r"^### 对 Should Fix（SF-01 到 SF-(\d+)）：$", "sf", 1),
     ("evals/run-eval.md", r"^### 对 Should NOT Fix（SNF-01 到 SNF-(\d+)）：$", "snf", 1),
     ("evals/run-eval.md", r"^- SF 通过率：X/(\d+)$", "sf", 1),

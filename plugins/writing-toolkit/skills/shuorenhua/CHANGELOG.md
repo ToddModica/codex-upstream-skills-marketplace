@@ -1,5 +1,48 @@
 # Changelog
 
+## [2.1.0] - 2026-07-23 — 清完变泛 / README 使用入口
+
+### Added
+- `references/positive-style.md` 新增「清理后的落点」合同：有具体信息时必须落回原文；没有具体口径时允许变短，但不补事实、不用更泛的空话填空。
+- `references/protected-spans.md` 增加时间范围与时间跨度保护，避免 `over the next decade` 等表达被改窄、改宽或模糊化。
+- `references/operation-manual.md` 为二元对比和价值拔高补清理后泛化检查。
+- `evals/benchmark.md` 新增 `SF-46` / `SNF-36`，评测集从 80 条扩为 82 条（46 SF + 36 SNF）；盲测输入和映射表已用固定种子重新生成。
+- 新增 `evals/results-v2.1.0.md`，归档全量盲测、核心 targeted、多模型诊断和已知边界。
+- README 增加 `npx skills add MrGeDiao/shuorenhua` 安装入口、检索关键词和现有能力模式地图。
+- 新增 `evals/benchmark-tiers.md`：用例分层（硬约束 / 风格目标 / 风格观察）与发布门槛的单源；`SF-15` / `SF-40` / `SF-42` 风格判定降为观察层并逐条记录理由。
+
+### Changed
+- README、评测说明、场景样本说明和 eval harness 批次表同步到 82 条 benchmark。
+- README 英文简介补充 `AI writing humanizer` 和 npx 安装入口，保持中文优先，不扩成全文英文化。
+- `SF-39` / `SF-40` / `SNF-29` / `SNF-30` 的场景标签显式带上 `in-place`，让盲测输入保留原先只写在章节说明里的 scope 指令。
+- `SF-41` / `SNF-31` / `SNF-32` 的场景标签显式带上 `bounded`；重写 `SF-26` 的否定式歧义输入，让姿态层处于真实正文语境。
+- `SF-12` / `SF-13` / `SF-20` 的预期同步到“不编造、不变泛、时间跨度不漂移”的新合同。
+- README scene pack、无源引用 mixed 段落和路径正确性认证补回读边界。
+- `SKILL.md`、eval rewrite prompt 和 README 模式地图同步无源数字的入口合同：无法独立成立时删整条论断，不能去掉数字后留下更泛判断；`bounded` 允许整条无源论断连同依附其上的数字进入待确认清单。
+- `automation/check_repo.py` 的 README 英文计数锚点跟随未发布版本的 `82-case benchmark` 文案更新。
+- 修复三处合同冲突：eval prompt 与 run-eval 此前允许 audit-only 样本整段冻结（与操作手册矛盾，`SF-18` 不稳定的直接原因），改为只约束无源论断本身；`SKILL.md` 单文件兜底补「方向/进度认证不得降格成弱安抚」；`SF-05` 预期对齐 rewrite-safe 合同（此前仍是旧口径"删掉研究表明直接给数据"）。
+- 发布门槛从「SF > 90% 且全模型统一」改为「硬约束失败 0 + SNF 误杀 < 10% + 本版 targeted 达标」，judge 判分拆成硬约束列与风格 / SNF 误杀列；旧口径 SF 通过率继续并列报告，用于历史对比。
+- 收紧双列语义：第二列对 SF 记录风格、对 SNF 记录误杀；普通 SNF 误杀不再误算成 L1，只有涉及编造或受保护片段破坏时才同时记硬约束失败。
+- 修复最终全量暴露的 code-context 保真缺口：真实运行行为、适用条件和边界明确归入 protected spans；SF-27 补写“高峰期流量”不能被相邻 504 指标替代，避免清姿态词时整行删掉独有条件。
+- 补齐实体与关系保真：抽象方案不得擅自具体化成工具 / 产品，目标不能换指代，架构潜力不能改写成实现关系；SF-03 / SF-07 / SF-08 / SF-32 的预期同步明确这些既有 L1 边界。
+- 进一步钉住配对关系：数字与所修饰对象、主体与各自动作 / 目标必须一起保留，不能把并列分句的对象归属合并，也不能从“两个团队”推断出团队更换顺序。
+- 增加分析—输出一致性回读：先记实体 / 关系账本；如果模型已经判断原文缺具体对象、能力或实现，最终结果不得再补出工具、产品、平台或功能，避免“诊断说不编造、输出却具体化”的自相矛盾。
+- 事实 / 关系账本补目的、适用条件、风险和限制：对象暂时抽象不等于没有信息，清掉“痛点”等套话时仍须保留“解决问题”这一目的关系。
+- 禁止把同段共现拼成新能力：背景或主题提到 AI，不代表相邻的表达工具处理 AI 生成文本；输出中的能力 / 输入 / 实现关系必须能回指原文同一谓词。
+- 保留断言粒度与谓词状态：删渲染词时不能把“已经提升 / 改善 / 加强”弱化成“涉及”，也不能把“提升效率”推演成“节省时间 / 成本”；SF-09 / SF-12 的既有预期同步写明这条 L1 边界。
+- 单源化去重：`automation/eval/rewrite-prompt.md` 的 scope 条款改为指向 `SKILL.md` 3.5，不再复述 bounded 例外；`references/` 全部文件头部加「行为合同以 SKILL.md 为准」的从属声明。
+
+### Tested
+- `python3 automation/eval/make_blind.py` 生成 82 条（46 SF + 36 SNF）。
+- `python3 automation/check_repo.py` 通过：82 用例 / 19 样本 / 24 锚点 / 69 链接。
+- `npx skills add MrGeDiao/shuorenhua` 真实安装成功；测试生成物未留在仓库。
+- 核心 10 条 targeted：Codex SF 9/9、SNF 0/1 误杀；Claude SF 6/9、SNF 0/1 误杀。Grok / Gemini 诊断与 provenance 见 `evals/results-v2.1.0.md`。
+- 82 条全量盲测：Codex SF 38/46、SNF 误杀 1/36；Claude SF 26/46、SNF 误杀 1/36。SF 通过率未达到既定 `>90%`，本版不恢复 `model-tested` 文案，已知边界如实归档。
+- 入口合同对齐后补跑 B-11 / B-61：Codex 与 Claude 均不再去掉无源数字后保留泛化论断，并允许整条无源论断进入 bounded 待确认清单。
+- Fable 结构修复后补跑 6 条双模型交叉 judge：两边 L1 失败均为 0、SF 均为 5/5；普通 SNF 误杀被稳定拆成「硬约束 ✅、SNF 误杀 ❌」，双列协议不再把它误算成 L1。
+- 最终 diff 上重跑 82 条全量：Codex L1 失败 0、L2 41/43、L3 3/3、SNF 误杀 1/36；Claude L1 失败 1（SF-27）、L2 30/43、L3 3/3、SNF 误杀 3/36。两边 SNF 均达标，但 Claude 的 L1 失败阻塞正式版；完整判分和争议审计见 `evals/results-v2.1.0.md` §7。
+- 关系保真根因修复后的最终 diff `d8408ce9edad998cba0cefcbc6372e84f3f07fb2`：Codex 完整 82 条 L1 失败 0、L2 37/43、L3 3/3、SNF 误杀 2/36；Claude 首轮出现 SF-07 单个 L1，未改规则后按事先声明完整确认复跑，确认轮 L1 失败 0、L2 36/43、L3 3/3、SNF 误杀 1/36。两边满足正式发布门槛；失败轮与确认轮并列归档，不宣称所有运行全绿。Codex judge 用量耗尽后，Claude 输出的剩余判分由 Grok 4.5 按同一双列协议完成。
+
 ## [2.0.2] - 2026-07-22 — 仓库完整性硬检查
 
 ### Added

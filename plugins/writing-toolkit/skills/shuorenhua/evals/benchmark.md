@@ -22,7 +22,7 @@
 | 场景 | short | long | mixed | code-context |
 |------|-------|------|-------|-------------|
 | chat | SF-01, SF-06, SF-11, SF-17, SF-29, SF-31, SF-36, SF-37, SF-38, SF-45, SNF-07, SNF-11, SNF-35 | - | SF-19, SNF-16 | - |
-| status | SF-02, SF-09, SF-15, SF-21, SF-25, SF-30, SNF-03, SNF-06, SNF-10, SNF-13, SNF-19, SNF-21, SNF-28, SNF-33 | - | - | SF-23, SNF-18 |
+| status | SF-02, SF-09, SF-15, SF-21, SF-25, SF-30, SF-46, SNF-03, SNF-06, SNF-10, SNF-13, SNF-19, SNF-21, SNF-28, SNF-33, SNF-36 | - | - | SF-23, SNF-18 |
 | docs | SF-04, SF-07, SF-26, SNF-01, SNF-02, SNF-04, SNF-05, SNF-08, SNF-09, SNF-14, SNF-20, SNF-34 | SF-18, SNF-15, SNF-23 | - | SF-22, SF-24, SF-27, SNF-17 |
 | public-writing | SF-03, SF-05, SF-08, SF-10, SF-12, SF-13, SF-16, SF-20, SF-28, SF-32, SF-33, SF-35, SF-42, SF-43, SF-44, SNF-12, SNF-24, SNF-25, SNF-27 | SF-34, SF-39, SF-40, SF-41, SNF-26, SNF-29, SNF-30, SNF-31, SNF-32 | SF-14 | - |
 | code-context | - | - | - | SNF-22 |
@@ -48,7 +48,7 @@
 ### SF-03 | public-writing | 互联网黑话
 > 为了解决这一痛点，我们打造了一套全新的解决方案，旨在赋能开发者社区，助力企业实现降本增效的闭环。
 
-**预期**："痛点"→"问题"，"打造"→"做了"，"赋能"→"帮"，"助力"→"帮"，"降本增效"→"省钱提速"，"闭环"→删掉或改成具体流程。
+**预期**："痛点"→"问题"，"打造"→"做了"，"赋能"→"帮"，"助力"→"帮"，"降本增效"→"省钱提速"，"闭环"→删掉或改成具体流程。原文只说“一套解决方案”，不能擅自具体化成工具、产品、平台或其他实体；`解决问题` 这一目的也不能在清理时丢掉。两组对象关系要分开：方案面向开发者社区，省钱提速的目标属于企业；不能合并成“帮开发者和企业省钱提速”。
 
 ### SF-04 | docs | 二元对比 + 否定式列举
 > 它不是一个框架，不是一个库，也不是一个工具——它是一种全新的开发范式。这不是简单的效率提升，而是对人机协作底层逻辑的根本性重构。
@@ -58,7 +58,7 @@
 ### SF-05 | public-writing | 无源引用
 > 研究表明，采用微服务架构的团队生产力显著高于单体架构团队。业内人士认为，这一趋势将在未来五年内持续加速。
 
-**预期**：给出具体研究名称/来源，或删掉"研究表明"直接给数据。"业内人士"说清楚是谁。
+**预期**：`public-writing` 默认 `rewrite-safe`：两条论断（生产力对比、未来五年加速）都只依赖无源引用成立，应整条删除；不得删掉"研究表明 / 业内人士认为"后把结论保留成裸事实，也不得把"未来五年"改成别的跨度；不能编造研究名称、机构或专家身份。只标注缺来源而不处理，记 `⚠️`。
 
 ### SF-06 | chat | 总结式收尾 + 过渡废话
 > 综上所述，总的来说，该方案在性能、安全性和可维护性方面都表现优异。简而言之，这是一个值得推荐的解决方案。希望这对你有帮助！
@@ -68,17 +68,17 @@
 ### SF-07 | docs (English) | Copula avoidance + significance inflation
 > The platform serves as a testament to the transformative potential of cloud-native architecture. It showcases how cutting-edge technology can foster seamless collaboration, underscoring its pivotal role in the evolving landscape of modern development.
 
-**Expected**: "serves as a testament" → "shows", "showcases" → "shows", "cutting-edge" → "latest/modern", "foster" → "enable/help", "pivotal" → "important", "evolving landscape" → delete.
+**Expected**: "serves as a testament" → "shows", "showcases" → "shows", "cutting-edge" → "latest/modern", "foster" → "enable/help", "pivotal" → "important", "evolving landscape" → delete. Preserve the original relationship: the passage discusses the potential of cloud-native architecture; it does not state that the platform itself is built on that architecture. Do not add that implementation claim.
 
 ### SF-08 | public-writing | 戏剧化碎句 + 金句感
 > 三年。两个团队。一个目标。当我们回头看这段旅程，每一步都充满了不可磨灭的意义。这不仅仅是一个产品，更是一种信念的传承。
 
-**预期**：去掉碎句格式，改成正常叙述。删掉"不可磨灭""信念的传承"。去掉"不仅仅是…更是…"结构。
+**预期**：去掉碎句格式，改成正常叙述。删掉"不可磨灭""信念的传承"。去掉"不仅仅是…更是…"结构。`三年 / 两个团队 / 一个目标` 的数量与指代关系要保留，不能把“一个目标”改成“一个产品”或其他对象，也不能把“两个团队”扩写成“换过 / 经历了两个团队”这类原文没有的先后关系。
 
 ### SF-09 | status | 被动语态堆砌
 > 系统被全面优化后，性能被显著提升，用户体验被大幅改善，安全性被进一步加强。
 
-**预期**：改成主动语态，说清楚谁做了什么。原文没有具体数据，不得编造；输出允许短而直白，但不得用"明显改善"这类更泛的概括词收尾。
+**预期**：改成主动语态，说清楚谁做了什么。原文没有具体数据，不得编造；输出允许短而直白，但必须保留性能已提升、体验已改善、安全性已加强这三项结果关系，不能弱化成“涉及 / 围绕这些方面”，也不得用"明显改善"这类更泛的概括词收尾。
 
 ### SF-10 | public-writing (English) | Sycophantic + meta-commentary
 > Great question! You're absolutely right that this is a fascinating topic. In this essay, we will explore the implications of AI-assisted coding. As we'll see, the landscape is evolving rapidly. Let's dive in!
@@ -93,12 +93,12 @@
 ### SF-12 | public-writing | 小红书 AI 腔
 > 姐妹们！今天给大家拆解一个保姆级干货！真的绝绝子！谁懂啊，这个工具狠狠提升了我的效率！强烈建议收藏！划重点：避坑指南在最后！
 
-**预期**：删掉"姐妹们""拆解""保姆级""干货""绝绝子""谁懂啊""狠狠""强烈建议收藏""划重点""避坑"。用正常语气说清楚工具是什么、好在哪。
+**预期**：删掉"姐妹们""拆解""保姆级""干货""绝绝子""谁懂啊""狠狠""强烈建议收藏""划重点""避坑"。原文只提供了“这个工具提升了效率”，没有工具名称、功能或数据；允许把整段压成这条已有信息，也允许删掉纯引导句。编造工具用途、功能或效率数据算 `❌`；把“提升效率”顺势扩写成“节省时间 / 成本”等更具体效果也算新增事实；只剩“能提效”之类比原文更泛的替代空话同样算 `❌`。
 
 ### SF-13 | public-writing | 正能量收尾 + 鸡汤
 > 诚然，AI 技术仍面临诸多挑战。但与其抗拒变化，不如积极拥抱这个充满无限可能的时代。只有不断学习、勇于创新，才能在未来的浪潮中乘风破浪。让我们拭目以待！
 
-**预期**：删掉整段或改成具体观点。"诚然"删掉。"与其…不如…"鸡汤结构删掉。"只有…才能…"删掉。"乘风破浪""拭目以待"删掉。如果要保留，说清楚具体挑战是什么、具体该学什么。
+**预期**：删掉整段或只保留原文已有的“AI 技术仍有挑战”这一判断。"诚然"删掉。"与其…不如…"鸡汤结构删掉。"只有…才能…"删掉。"乘风破浪""拭目以待"删掉。原文没有说明具体挑战或该学什么，不得自行补充；输出“面临挑战”“拥抱变化”之类更泛的替代空话算 `❌`。
 
 ### SF-14 | chat | 语域混搭
 > 诚然，这个 feature 的实现确实存在一定的技术复杂度。不过说白了就是绝绝子！我们需要进一步深入探讨其底层逻辑，稳稳把核心链路兜住。综上所述，建议收藏。
@@ -168,7 +168,7 @@
 ### SF-20 | public-writing (English) | Unsourced authority claim
 > Studies show that teams using AI pair programming ship features 40% faster. Experts say this shift will redefine software delivery over the next decade.
 
-**Expected**: For `public-writing`, prefer `rewrite-safe`: remove `Studies show` / `Experts say` unless a real source is available, and do not invent a study, expert group, or statistic. If the model only flags the missing source without rewriting away the authority scaffold, count it as partial.
+**Expected**: For `public-writing`, prefer `rewrite-safe`: remove `Studies show` / `Experts say` unless a real source is available, and do not invent a study, expert group, or statistic. If the claim is retained, `40%` and `over the next decade` are protected spans: changing the time range to `a few years`, `the coming years`, or any narrower, wider, or vaguer span counts as `❌`. Removing the whole unsourced claim is allowed. If the model only flags the missing source without rewriting away the authority scaffold, count it as partial.
 
 ### SF-21 | status | 无源引用在保守场景里的处理
 > 数据显示，这次改版显著提升了留存率。业内人士认为，这个方向已经验证可行，后续只要继续投入就能稳定放大收益。
@@ -183,9 +183,9 @@
 **预期**：可以去掉 `不是一次简单 patch`、`系统性重塑` 这类姿态层，但必须保留 `4 月 12 日`、`iOS 次日留存`、`31.4%`、`34.1%`、`王宁`、`source=campaign`、`明天下午 3 点前`。不能把“今天会补回去”改成“已经补回去了”。
 
 ### SF-26 | docs | 命令、报错、版本号和配置值保留
-> 在 `v2.3.1` 中，运行 `bin/migrate --tenant=prod --dry-run` 后，如果日志出现 `schema mismatch on orders_v2`，说明迁移前置检查没有通过。不要试图通过“系统性治理”把问题稳稳兜住；先确认 `DB_SCHEMA_VERSION=20260412` 和线上一致，再继续。
+> 在 `v2.3.1` 中，运行 `bin/migrate --tenant=prod --dry-run` 后，如果日志出现 `schema mismatch on orders_v2`，说明迁移前置检查没有通过。先确认 `DB_SCHEMA_VERSION=20260412` 和线上一致，再继续。后续再通过系统性治理把问题稳稳兜住。
 
-**预期**：可以清掉 `系统性治理`、`稳稳兜住` 这类 AI 腔，但必须保留 `v2.3.1`、`bin/migrate --tenant=prod --dry-run`、`schema mismatch on orders_v2`、`DB_SCHEMA_VERSION=20260412` 原样。不能改命令、报错、配置值，也不能把“前置检查没有通过”写成别的错误类型。
+**预期**：最后一句的 `系统性治理`、`稳稳兜住` 是正文姿态层，应清掉或删句；它们不再处于否定式提醒或被讨论语境。必须保留 `v2.3.1`、`bin/migrate --tenant=prod --dry-run`、`schema mismatch on orders_v2`、`DB_SCHEMA_VERSION=20260412` 原样。不能改命令、报错、配置值，也不能把“前置检查没有通过”写成别的错误类型。
 
 ### SF-27 | docs | code comment 里的 fact-bearing spans
 > ```go
@@ -195,7 +195,7 @@
 > func handleRequest(req *Request) {}
 > ```
 
-**预期**：只改注释，不动代码；可以清掉 `系统性治理`、`稳稳兜住`，但必须保留 `2026-04-12`、`504`、`3.8%`、`0.6%`、`ENABLE_EDGE_CACHE=false`、`x-cache-bypass: 1`。不能把 header 名、配置值或比较关系写错。
+**预期**：只改注释，不动代码；可以清掉 `系统性治理`、`稳稳兜住`，但必须保留 `2026-04-12`、`504`、`3.8%`、`0.6%`、`ENABLE_EDGE_CACHE=false`、`x-cache-bypass: 1`。`高峰期流量` 是 fallback 行为的适用条件，不在数值结果里，清理姿态词后仍须保留；不能因为上一行已有 504 指标就把这条行为整行当作重复信息删除。不能把 header 名、配置值或比较关系写错。
 
 ### G. Residual Audit / Two-pass
 
@@ -224,7 +224,7 @@
 ### SF-32 | public-writing / README | README intro 不能只写价值口号
 > 在 AI 全面重塑开发范式的今天，我们打造了一款真正面向未来的中文表达优化工具。它以先进的规则体系为底座，深度赋能开发者的内容生产链路，帮助团队在复杂协作场景中实现自然表达、效率提升与价值闭环。
 
-**预期**：按 `README` scene pack 处理。第一段必须直接说清“这是什么、给谁用、解决什么问题”，删掉 `全面重塑开发范式 / 面向未来 / 先进的规则体系 / 深度赋能 / 内容生产链路 / 价值闭环` 这类口号。不能把 README intro 改成社交媒体口吻，也不能漏掉项目定位。
+**预期**：按 `README` scene pack 处理。第一段必须直接说清“这是什么、给谁用、解决什么问题”，删掉 `全面重塑开发范式 / 面向未来 / 先进的规则体系 / 深度赋能 / 内容生产链路 / 价值闭环` 这类口号。只能使用原文已有的定位：中文表达优化工具、面向开发者和团队、帮助自然表达；不能补成“专门处理 AI 套话 / 生硬表达”等原文没有的具体能力。不能把 README intro 改成社交媒体口吻，也不能漏掉项目定位。
 
 ### SF-33 | public-writing / release-note | Release note 应列变更，不写发布宣言
 > ## v1.8.0 Release Highlights
@@ -264,7 +264,7 @@
 
 本节样本是长文场景的节选，用来验证 `in-place` 动作边界。评测时视为用户已明确要求保长度 / 保节奏；即使节选本身没到 1000 字，也应按 `in-place` scope 处理。
 
-### SF-39 | public-writing / long | 保长度时只做句内改写，不压缩成长摘要
+### SF-39 | public-writing / long / in-place | 保长度时只做句内改写，不压缩成长摘要
 > 这篇文章不是一次简单的复盘，而是我对过去半年写作方式的一次系统性重塑。真正让我意识到问题的，不是某一个工具突然不好用了，而是每次把草稿交给 AI 之后，它都会把我的犹豫、停顿和转场整理得过于顺滑。表面上看，文章变得更完整了；但再读一遍，会发现很多原本属于我的节奏都消失了。
 >
 > 先说第一点。长文里有些重复不是废话，它只是作者在换气。比如我会反复写“这件事让我有点不舒服”，不是因为我不知道怎么换词，而是因为这种不舒服本身就需要被重复几次，读者才知道它不是一闪而过的情绪。AI 很容易把这些重复删掉，再补一句“归根结底，这是表达效率和个人风格之间的平衡”。这句话看起来聪明，但它没有替我说出更多东西。
@@ -273,7 +273,7 @@
 
 **预期**：如果用户要求保长度，或文本按 `public-writing` 长文触发 `in-place`，应只做句内改写：压低 `系统性重塑 / 真正让我意识到 / 归根结底 / 不是所有 X 都 Y` 这类骨架，但不删整句、不合并段落、不把三段压成短摘要。字数留存率目标 ≥ 0.90，硬下限 0.85；关键句如“长文里有些重复不是废话，它只是作者在换气”必须保留或句内轻改。
 
-### SF-40 | public-writing / long | 多类骨架叠加时，in-place 应替换骨架而不是删段落
+### SF-40 | public-writing / long / in-place | 多类骨架叠加时，in-place 应替换骨架而不是删段落
 > 我想写这篇文章，不仅仅是为了说明一个工具的小问题，更是为了记录一种越来越常见的写作错位。很多人把“去 AI 味”理解成删掉套话、去掉总结、把句子改短。这个方向没有错，但如果它最终把所有停顿、铺垫和重复都处理掉，文章会变得干净，却不一定更像作者本人。
 >
 > 与其说我在反对改写，不如说我在反对一种过度整理。AI 最擅长的事情之一，就是把原本松散的文本收束成“结构清晰、观点明确、表达顺滑”的样子。问题在于，很多长文的价值恰恰不在顺滑，而在它保留了作者思考时的迟疑、回头和补充。
@@ -286,7 +286,7 @@
 
 `bounded` 是 `public-writing` 长文的默认 scope，介于 `structural` 和 `in-place` 之间：句内洗照常做，但"整句都是空话"的句子不直接删、也不软化，而是进「建议删除（待确认）」清单交用户拍板。下面样本视为长文节选，按 `bounded` 处理。
 
-### SF-41 | public-writing / long | bounded：整句空话进删除清单，实句和节奏句不动
+### SF-41 | public-writing / long / bounded | bounded：整句空话进删除清单，实句和节奏句不动
 > 在如今这个技术飞速迭代的时代，把项目开源早已成为开发者的共识。我上个月开源了一个日志小工具，第一周就来了二十多个 issue。最难的不是写代码。最难的是回复 issue。研究表明，超过七成的开源项目第一年内就停更了。可以说，维护开源，本质上是一场与时间的修行。
 
 **预期**：按 `bounded` 处理。三句剥掉引导词后不剩实质的整句空话——`在如今这个技术飞速迭代的时代……共识`（谄媚开场）、`研究表明，超过七成……停更了`（无源引用）、`可以说，维护开源，本质上是一场与时间的修行`（价值拔高收尾）——进「建议删除（待确认）」清单，不直接删、不软化成新说法。带数字的实句 `第一周就来了二十多个 issue`、承担节奏的排比 `最难的不是写代码。最难的是回复 issue。` 必须原样保留。正文只输出句内洗后的稿，删除项单独列出交用户确认；不把这三句直接删掉算 `✅`，直接删或软化成另一种说法算 `⚠️`。
@@ -310,6 +310,11 @@
 > 兄弟们，这个库直接封神！性能测试结果炸裂了，重点来了：它把冷启动从 800ms 干到了 90ms。我给你们掰开揉碎讲讲它为什么这么快。
 
 **预期**：`直接封神`、`炸裂了` 按自媒体腔 / 小红书 AI 腔同族处理，`重点来了` 按总结提示腔处理，`掰开揉碎` 按庸医问诊腔变体（同 v1.8.3 的 `掰扯清楚`）处理，不需要词表逐条收录也应命中。数字 `800ms`、`90ms` 保留。改完应像正常的技术分享开场，不是带货文案；把数字一起删掉或改动算 `❌`。
+
+### SF-46 | status | 有指标时必须落回具体结果
+> 本次优化在性能方面取得了显著成效，有效改善了接口响应问题，p95 延迟从 480ms 降到 160ms，充分体现了团队持续优化的能力。
+
+**预期**：删掉 `显著成效`、`有效改善`、`充分体现了团队持续优化的能力` 等渲染和自夸表达，但必须逐字保留 `p95`、`480ms`、`160ms` 以及延迟下降的关系。输出只剩“改善了性能”或“降低了延迟”等更泛的替代空话，记 `❌`；不能编造其他指标或技术动作。
 
 ---
 
@@ -444,6 +449,11 @@
 
 **理由**：`有，而且……` 单独出现时是正常的应答起手，这里承载了具体信息（开关位置、执行时间、保留份数）。它只在完整推销模板（先夸认证 + 主动加码 + 结尾确认推销）里才作为弱信号参与判断，不单独收词、不单点命中。把这句改平或删掉起手式导致答非所问，算误杀。
 
+### SNF-36 | status | 原文无数据时不强行补具体口径
+> 这次主要处理了查询链路。延迟和错误率还没测出来，先继续观察。
+
+**理由**：这段已经短而直白，也明确说明延迟和错误率还没有测量结果。应原样放行；不能因为它“不够具体”就编造数字、模块、技术方案，也不能把它改回渲染词或价值拔高。
+
 ### B. Long
 
 ### SNF-15 | docs | 长段技术复盘中的工程术语
@@ -461,7 +471,7 @@
 
 **理由**：v1.8.3 起 `落盘 / 落 X` 按宾语判断，规则同 v1.7.3 的 `接住`。这里 `落盘` 的宾语是 `重构方案 / 阶段拆分 / 边界 / TODO` 这类具体技术对象，且能复述"写到哪里"（`planning-with-files 目录的三份文档`），是开发流程中实际的"写入磁盘 / 落地存档"动作，不是姿态层。文档目录名 `planning-with-files`、文档数量 `三份`、阶段词都是受保护片段，不应因 `落盘` 单词命中改平。
 
-### SNF-29 | public-writing / long | 重复承担节奏，不应被 in-place 当作水分删掉
+### SNF-29 | public-writing / long / in-place | 重复承担节奏，不应被 in-place 当作水分删掉
 > 我不想把这篇文章写成一份结论清单。清单当然有效，读者扫一眼就能知道我想说什么，但这件事不是扫一眼就能说完的。
 >
 > 我想慢一点说。第一次觉得不对，是因为 AI 把我写的几个“其实我还没想清楚”都删掉了。第二次觉得不对，是因为它把两段犹豫合成了一句“这说明作者仍在寻找表达边界”。第三次再看，我才发现问题不在那一句话准不准，而在它把我原本的停顿变成了一个很漂亮的判断。
@@ -470,7 +480,7 @@
 
 **理由**：这里的“我想慢一点说”重复承担段落节奏和作者立场，不是空总结。`in-place` scope 下不应删掉重复句、合并第二段三个时间点，或把全文压成“作者认为 AI 过度整理会损失节奏”。可以句内清理个别过顺表达，但必须保留重复节奏。
 
-### SNF-30 | public-writing / long | 正常承接句挂在事实上下文里，不是总结式收尾
+### SNF-30 | public-writing / long / in-place | 正常承接句挂在事实上下文里，不是总结式收尾
 > 另外，我还观察到一个细节：同一篇文章里，如果前半段是经历，后半段是判断，中间那几句转场看起来常常有点笨。它们不够漂亮，也不像金句，但它们能告诉读者，作者是怎么从经历走到判断的。
 >
 > 与此同时，很多模型会把这些转场改成更有气势的表达。比如把“我后来才意识到”改成“这背后反映出一个更深层的问题”，或者把“也就是说”后面的解释合并到上一段。改完以后，段落确实更紧，但读者看不到作者转念的过程。
@@ -479,12 +489,12 @@
 
 **理由**：`另外 / 与此同时 / 也就是说` 都挂在具体事实和判断上下文里，承担长文承接功能。即使命中连接词或总结提示信号，也不应在 `in-place` 下整句删除、并句或重排。只允许处理句内的拔高词，不能误杀正常转场。
 
-### SNF-31 | public-writing / long | bounded 删除清单不该混进实句或节奏句
+### SNF-31 | public-writing / long / bounded | bounded 删除清单不该混进实句或节奏句
 > 这三年我换了两家公司，每一次都在重新理解“稳定”这个词。第一次是在创业团队，稳定意味着别让服务半夜挂掉。第二次是在大厂，稳定意味着别让一次发布影响上千万用户。说到底，我现在更看重那种不需要时刻盯着也能放心的系统。
 
 **理由**：测 `bounded` 删除清单的边界。`说到底` 是句首引导词，但删掉它之后整句仍是带信息的立场判断（作者真正看重什么），不是整句空话 —— 只能句内删 `说到底` 三字，整句不进删除清单。`第一次……第二次……` 是承担节奏的排比，且带具体信息（创业团队 / 大厂、半夜挂掉 / 上千万用户），更不能进清单。如果 `bounded` 把这几句当整句空话删掉或塞进删除清单，记 `❌`。
 
-### SNF-32 | public-writing / long | bounded 不得把壳句和数据句并成一句
+### SNF-32 | public-writing / long / bounded | bounded 不得把壳句和数据句并成一句
 > 在当今快速发展的 AI 时代，我们致力于重塑开发者的内容生产链路。上个月把改写流程接进 CI 后，README 首次整理时间从 18 分钟降到 6 分钟。
 
 **理由**：来源为 `results-v1.8.6` §4 记录的越界行为，用来钉住 `bounded` 防并句边界。第一句是商业黑话壳句，句内洗或进「建议删除（待确认）」清单即可；**不得与第二句合并成一句输出**，更不能把第二句改成总结句或软化成“明显提升效率”之类的新说法。第二句是具体数据句，`上个月`、`接进 CI`、`18 分钟`、`6 分钟` 必须逐字保留。
@@ -542,4 +552,4 @@
 - `无源引用类 SF` 额外口径：`public-writing / chat` 默认以删掉无证据权威铺垫为 `✅`；`docs / status` 默认以明确标注缺来源且不伪装成已证实为 `✅`；识别到问题但没有按场景默认动作处理，记 `⚠️`
 - 无论场景，给无源引用补出不存在的研究名、机构、年份、专家或数据，一律记 `❌`
 
-**整体通过率目标**：SF 通过率 > 90%，SNF 误杀率 < 10%。
+**发布门槛**（2026-07-23 起，分层单源见 [benchmark-tiers.md](./benchmark-tiers.md)）：硬约束（protected spans / 编造 / scope 越界 / 归属改变 / 引用边界）失败为 0；SNF 误杀率 < 10%，其中涉编造或受保护片段破坏的误杀为 0；本版新增或修订用例的 targeted 达标。全量风格通过率按模型分别报告、只看趋势，不再要求所有模型统一 > 90%；旧口径 SF 通过率继续并列报告，用于历史对比。

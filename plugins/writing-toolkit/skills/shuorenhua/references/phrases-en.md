@@ -1,5 +1,7 @@
 # English Banned Phrases
 
+> 本文件是解释、示例与操作细则；行为合同的单源是 `SKILL.md`，两处表述不一致时以 `SKILL.md` 为准。
+
 > Sources: humanizer, stop-slop, avoid-ai-writing, beautiful_prose.
 
 ## Tier 1: Replace by default
