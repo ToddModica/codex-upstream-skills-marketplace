@@ -583,9 +583,17 @@ These forms are needed only when the stated PPT behavior matters:
 
 ### 4.3 Element Grouping (Mandatory)
 
-**Hard rule — root groups protect body-text layout**: Every visible direct root `<g>` declares positive root-coordinate `data-pptx-bounds="x y width height"`. Keep it when frame/native coordinates size one PowerPoint object; placeholder bounds also supply the slot frame. Checker validates this subcanvas against the root `viewBox`, then recursively validates only estimable `<text>` descendants against it. Nested groups and all shapes, images, paths, `<use>` instances, effects, and object frames are not content-boundary inputs. Per side, Checker ignores text/bounds overflow through `1px`, warns through `5%` of the containing boundary dimension, and fails above `5%`. Bounds do not clip or reflow.
+**Hard rule — root groups protect body-text layout**: Every visible direct root `<g>` declares positive root-coordinate `data-pptx-bounds="x y width height"`. Keep it when frame/native coordinates size one PowerPoint object; placeholder bounds also supply the slot frame. On flat pages, make each module zone as generous as the canvas and sibling layout allow without overlapping another module zone. Checker validates this subcanvas against the root `viewBox`, then recursively validates only estimable `<text>` descendants against it using the shared SVG-to-PPTX per-run width estimate and safety headroom. Nested groups and all shapes, images, paths, `<use>` instances, effects, and object frames are not content-boundary inputs. Per side, Checker ignores text/bounds overflow through `1px`, warns through `5%` of the containing boundary dimension, and fails above `5%`. Bounds do not clip or reflow.
 
 Wrap each logical Slide-local body unit in one descriptive top-level `<g id>`; group count follows the page's semantic units, and each group becomes one animation step when animation is enabled. Nested implementation groups may remain anonymous and need no bounds; any nested bounds are ignored. Flat pages use ordinary groups; structured slots already qualify, while titles, direct atomic Master/Layout elements, and canvas-level static framing—including background images and full-canvas scrim/decoration rectangles—may remain root primitives. On flat pages, give such static framing a stable `id` plus `data-pptx-role="background"` / `"decoration"`; never add a `<g>` solely to silence an ungrouped-element advisory.
+
+**Reference — not a constraint**: A top-level semantic group may contain
+descriptive nested `<g>` edit groups when its internal elements form useful
+subunits, such as icon + title, value + label, or repeated information rows.
+Nested groups carry no `data-pptx-bounds` and create no automatic animation
+step; an unnecessary one-child wrapper may flatten. Choose whether and how
+deeply to nest from the page's actual editing semantics—there is no default
+nesting pattern, level, or quota.
 
 **Structural atoms and slots are excluded automatically.** `data-pptx-layer` and `data-pptx-placeholder` semantics are read first; otherwise explicit `data-pptx-role` values (`background`, `decoration`, `header`, `footer`, `chrome`, `watermark`, `page-number`, `logo`) mark Slide-local static framing (§4.1, [`semantic-svg.md`](semantic-svg.md)). A normal slot group has exactly one direct compatible carrier; several drawing atoms require the explicit composite `object` proxy fallback. Native chart/table carrier groups retain their specialized [`native-data-interface.md`](./native-data-interface.md) contract.
 
@@ -610,7 +618,7 @@ separate parent content group; never put them inside the preset group itself.
 
 - One giant `<g>` around the whole slide (collapses to a single animation step).
 - Many ungrouped Slide-local `<rect>` / `<text>` / `<path>` atoms — they have no stable sidecar target and selection/editing degrades. Primitive fallback applies only when the root contains no top-level `<g>` at all; it is capped at 8 visible primitives.
-- One group per icon / text line / mark (too many steps).
+- One top-level group per icon / text line / mark (too many animation steps).
 - Anonymous top-level groups — every top-level semantic group needs a descriptive `id`.
 
 **Naming — required.** A descriptive, page-unique `id` on every top-level content `<g>` (`card-1`, `step-discover`, `header`, `footer`) is mandatory; it is the stable SVG-side animation and trace anchor. An anonymous top-level group still converts, but `animations.json` cannot reference it; an anonymous one-child implementation wrapper may also flatten. Primitive fallback is unrelated and applies only to roots with no top-level groups.
@@ -620,8 +628,10 @@ separate parent content group; never put them inside the preset group itself.
   <!-- Shadow only if the card floats over a colored panel; on flat white, omit it. -->
   <rect x="60" y="115" width="565" height="260" rx="20" fill="#FFFFFF" filter="url(#shadow)"/>
   <use data-icon="chunk-filled/bolt" x="108" y="163" width="44" height="44" fill="#0071E3"/>
-  <text x="105" y="270" font-size="56" font-weight="bold" fill="#0071E3">10×</text>
-  <text x="250" y="270" font-size="30" font-weight="bold" fill="#1D1D1F">Faster</text>
+  <g id="card-benefits-metric">
+    <text x="105" y="270" font-size="56" font-weight="bold" fill="#0071E3">10×</text>
+    <text x="250" y="270" font-size="30" font-weight="bold" fill="#1D1D1F">Faster</text>
+  </g>
   <text x="105" y="310" font-size="18" fill="#6E6E73">Reduce production time from days to hours.</text>
 </g>
 ```

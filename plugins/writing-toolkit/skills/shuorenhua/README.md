@@ -28,6 +28,7 @@
 <p align="center">
   <a href="#改成什么样">改成什么样</a> ·
   <a href="#30-秒上手">30 秒上手</a> ·
+  <a href="#为什么改完敢直接发">保真合同</a> ·
   <a href="#它怎么判断怎么改">怎么改</a> ·
   <a href="#评测">评测</a> ·
   <a href="#安装">安装</a> ·
@@ -47,24 +48,6 @@
 | 中文长文 | 句内清理保住节奏，整句空话列「建议删除」清单交你确认，不让长文越改越短 |
 
 检索关键词：中文 AI 写作、中文 humanizer、去 AI 味、AI writing humanizer、Chinese writing style。
-
-## 模式地图
-
-| 识别信号 | 默认动作 | 例 |
-|------|------|------|
-| 开场套话、总结提示（“好问题”“结论先说”） | 删提示层，直接进入事实或回答 | `好问题！让我来解释` → 直接回答 |
-| 商业黑话、价值拔高（“赋能”“闭环”“系统性升级”） | 换成普通动作；没有具体信息就删空壳 | `赋能开发者` → `帮开发者` |
-| 工程师姿态腔（“收口”“兜住”“落盘”） | 按宾语判断；姿态层换成确认、核对、写入等动作 | `把结论落盘` → `把结论写进文档` |
-| 过度接住、心理判断、身份认证 | 去掉抚慰和发证书，只保留低承诺回应 | `你不是敏感，你只是……` → 具体回应 |
-| 翻译腔、句式过满 | 缩短主语和动作，保留术语和责任主体 | `基于……通过……来……` → 直接说动作 |
-| 标点腔（破折号密集或首句起手） | 按密度和位置改回逗号、冒号或断句；单次合理用法放行 | 连续 `——` → 分句 |
-| 无源权威（“研究表明”“业内人士认为”） | `chat / public-writing` 删除无法独立成立的整条论断；`docs / status` 标注缺来源 | 不把裸 `40%` 留成事实，也不降格成“会更快” |
-| README / release note / forum / issue reply | 按发布目的收束，不把文档改成广告或客服话术 | README 先说是什么、给谁用 |
-| 中文长文 scope | 默认 `bounded`；句内清理，整句空话进待确认清单 | 不并句、不重排、不误删节奏 |
-
-详细边界见 [references/](references/)、[场景规则](references/scene-packs.md) 和 [评测集](evals/benchmark.md)。
-
-英文去 AI 味已经有 [stop-slop](https://github.com/hardikpandya/stop-slop) 和 [humanizer](https://github.com/blader/humanizer)。`说人话` 补的是中文这一层：这些腔调在中文里长什么样、按发布场景分档处理、改写前先锁住事实。
 
 ## 改成什么样
 
@@ -100,17 +83,23 @@
 
 release note 的读者要的是变更清单，不是发布宣言。版本号保住，姿态层拆掉，没做的事也写出来。完整样本见 [evals/real-samples.md](evals/real-samples.md) RS-16。
 
-### 公开介绍的宏大开场
+### 删掉渲染词，数字不能跟着丢
 
 **改写前**
 
-> 在当今快速发展的人工智能时代，如何打造一个真正赋能开发者的工具，已经成为业界不容忽视的关键议题。
+> 本次优化在性能方面取得了显著成效，有效改善了接口响应问题，p95 延迟从 480ms 降到 160ms，充分体现了团队持续优化的能力。
+
+**改坏示范**
+
+> 这次优化明显降低了接口延迟。
+
+渲染词是没了，但 p95、480ms、160ms 也跟着没了——空话只是换成了更泛的空话。
 
 **改写后**
 
-> AI 工具很多，但改完的中文常常还留着套话。这个项目专门清这些残味：过度承接、工程师腔、翻译腔、无源权威和自我拔高。
+> 这次优化把接口 p95 延迟从 480ms 降到 160ms。
 
-更多例子见 [references/examples.md](references/examples.md) 和 [evals/real-samples.md](evals/real-samples.md)。
+清完落在哪是有合同的：原文给了具体信息就必须落回去，不许变泛。这条对应评测集里的硬约束用例（[evals/benchmark.md](evals/benchmark.md) SF-46）。更多例子见 [references/examples.md](references/examples.md) 和 [evals/real-samples.md](evals/real-samples.md)。
 
 ## 30 秒上手
 
@@ -146,6 +135,18 @@ npx skills add MrGeDiao/shuorenhua
 
 Cursor、OpenClaw 和自建 agent 见[安装](#安装)。
 
+## 为什么改完敢直接发
+
+去 AI 味工具最常见的翻车不是没清干净，是清完事实变了：数字漂了、关系换了、原文没有的补出来了。`说人话` 把这些“不许变”写成可以逐条判分的合同：
+
+- **数字和修饰对象一起保**：`p95 从 480ms 降到 160ms` 删掉渲染词后必须原样在，不许概括成“明显降低”。
+- **关系不许改写**：`展示了云原生架构的潜力` 不能改成 `采用了云原生架构`（潜力不是实现）；`两个团队` 不能扩成“换过两个团队”（先后关系是原文没有的）。
+- **时间跨度不漂移**：`未来十年` 不能缩成“未来几年”，也不能糊成“未来”。
+- **抽象不许擅自具体化**：原文只说“提升效率”，不能改成“省时间”“降成本”。
+- **缺信息不许编**：原文没给数据，允许输出更短更直白，但不补数字、工具名或来源；`status / docs` 缺依据时标注“原文缺具体依据”，不硬填。
+
+每条合同在评测集里都有对应的硬约束用例（SF-07、SF-08、SF-46、SNF-36 等），双模型盲测逐条判分。规则细节见 [references/positive-style.md](references/positive-style.md) 的「清理后的落点」和 [references/protected-spans.md](references/protected-spans.md)。
+
 ## 它怎么判断怎么改
 
 `说人话` 不是见词就替换。一句话原则：
@@ -155,11 +156,27 @@ Cursor、OpenClaw 和自建 agent 见[安装](#安装)。
 完整流程固定六步：
 
 1. 判场景：`chat / status / docs / public-writing`；命中 README、release note、论坛帖、issue 回复时，再进对应的 Scene Pack
-2. 划保护片段：数字、版本、命令、路径、报错、引用原文、人名和责任归属先锁住（完整清单见 [references/protected-spans.md](references/protected-spans.md)）
+2. 划保护片段：数字、版本、命令、路径、报错、引用原文、人名和责任归属先锁住，同时记一份事实关系账本——谁对什么做了什么、数字修饰哪个对象（完整清单见 [references/protected-spans.md](references/protected-spans.md)）
 3. 判命中强度（`Tier 1 / 2 / 3`），再分别定改写力度（`minimal / standard / aggressive`）和 scope（`structural / bounded / in-place`）；Tier 只描述问题命中多重，不直接等于力度
 4. 先按模式改，词表只兜底
 5. 保真回读：事实、术语、语域、保护片段逐项过
 6. 仍有残味才做第二遍 Residual Audit，只允许轻量修正
+
+### 模式地图
+
+| 识别信号 | 默认动作 | 例 |
+|------|------|------|
+| 开场套话、总结提示（“好问题”“结论先说”） | 删提示层，直接进入事实或回答 | `好问题！让我来解释` → 直接回答 |
+| 商业黑话、价值拔高（“赋能”“闭环”“系统性升级”） | 换成普通动作；没有具体信息就删空壳 | `赋能开发者` → `帮开发者` |
+| 工程师姿态腔（“收口”“兜住”“落盘”） | 按宾语判断；姿态层换成确认、核对、写入等动作 | `把结论落盘` → `把结论写进文档` |
+| 过度接住、心理判断、身份认证 | 去掉抚慰和发证书，只保留低承诺回应 | `你不是敏感，你只是……` → 具体回应 |
+| 翻译腔、句式过满 | 缩短主语和动作，保留术语和责任主体 | `基于……通过……来……` → 直接说动作 |
+| 标点腔（破折号密集或首句起手） | 按密度和位置改回逗号、冒号或断句；单次合理用法放行 | 连续 `——` → 分句 |
+| 无源权威（“研究表明”“业内人士认为”） | `chat / public-writing` 删除无法独立成立的整条论断；`docs / status` 标注缺来源 | 不把裸 `40%` 留成事实，也不降格成“会更快” |
+
+详细边界见 [references/](references/)、[场景规则](references/scene-packs.md) 和 [评测集](evals/benchmark.md)。
+
+英文去 AI 味已经有 [stop-slop](https://github.com/hardikpandya/stop-slop) 和 [humanizer](https://github.com/blader/humanizer)。`说人话` 补的是中文这一层：这些腔调在中文里长什么样、按发布场景分档处理、改写前先锁住事实。
 
 ### 场景与力度
 
@@ -212,7 +229,26 @@ Cursor、OpenClaw 和自建 agent 见[安装](#安装)。
 | Long-form In-place | 4 | 长文保长度场景，检查字数留存、句数对齐和关键转场 |
 | Bounded | 3 | 长文整句空话进删除清单，但不误删实句和节奏句 |
 
-v1.9.0 起 benchmark 改为双模型实跑口径（Codex + Claude 交叉判分，见 [evals/results-v1.9.0.md](evals/results-v1.9.0.md)）；v2.0.0 起实跑盲测化：被测模型只看匿名乱序、不含预期的 [evals/benchmark-blind.md](evals/benchmark-blind.md)，judge 按映射表判分，每次实跑的评测集版本、模型和口径登记在 [evals/run-manifest.md](evals/run-manifest.md)。静态走查退为发版前快速自查。2026-07-23 起发布门槛分层：硬约束失败 0、SNF 误杀 < 10%、本版 targeted 达标；全量风格分按模型报告、只看趋势，分层判据见 [evals/benchmark-tiers.md](evals/benchmark-tiers.md)。完整用例集见 [evals/benchmark.md](evals/benchmark.md)，整段场景样本（高拟真合成）见 [evals/real-samples.md](evals/real-samples.md)。`results-v1.8.6.md` 保留为 v1.8.6 首次模型实跑归档。
+怎么算及格：v2.1.0 起发布门槛分三层（判据单源：[evals/benchmark-tiers.md](evals/benchmark-tiers.md)）：
+
+| 层 | 管什么 | 进不进门槛 |
+|----|--------|------------|
+| L1 硬约束 | 编造事实、受保护片段漂移、责任归属改变、scope 越界 | 进：失败 0 才允许发布 |
+| SNF 误杀 | 不该改的文本被改了 | 进：误杀率 < 10% |
+| L2 风格目标 | 明显套路清没清干净 | 按模型分别报告趋势，不设统一线 |
+| L3 风格观察 | 两位合格编辑可能合理分歧的用例 | 不进，只记录 |
+
+v2.1.0 实跑（82 条全量盲测、双模型交叉判分，完整归档见 [evals/results-v2.1.0.md](evals/results-v2.1.0.md)）：
+
+| 被测输出 | L1 硬失败 | SNF 误杀 | 门槛 |
+|----------|-----------|----------|------|
+| Codex 最终全量 | 0 | 2/36 | 通过 |
+| Claude 最终全量首轮 | 1（SF-07） | 3/36 | 未通过 |
+| Claude 完整确认轮 | 0 | 1/36 | 通过 |
+
+Claude 首轮那 1 个 L1 不是规则缺口：判定链已经写明“不得补实现关系”，输出还是补了，属分析—输出自相矛盾。按事先声明不改规则、只做一次完整确认复跑；失败轮与确认轮并列归档，不宣称所有运行全绿。旧口径 SF 通过率继续并列报告（Codex 87.0%、Claude 84.8%），保持历史可比，不再作为发布依据。
+
+评测怎么跑：被测模型只看匿名乱序、不含预期的 [evals/benchmark-blind.md](evals/benchmark-blind.md)，judge 按映射表判分；每次实跑的评测集版本、模型和口径登记在 [evals/run-manifest.md](evals/run-manifest.md)。完整用例集见 [evals/benchmark.md](evals/benchmark.md)，整段场景样本（高拟真合成）见 [evals/real-samples.md](evals/real-samples.md)。
 
 ## 安装
 
@@ -236,7 +272,9 @@ v1.9.0 起 benchmark 改为双模型实跑口径（Codex + Claude 交叉判分�
 
 ## English
 
-**shuorenhua (说人话)** is a Chinese-first AI writing humanizer for Codex, Claude Code, Cursor, and ChatGPT. It removes AI-flavored patterns in Chinese text — sycophantic openers, performative engineer-speak, translationese, unsourced authority claims — while preserving facts, numbers, commands, terminology, and attribution. It ships with an 82-case benchmark including false-positive guards, and a long-form mode that cleans up the text without shrinking it. Claude Code users can install it in two commands: `/plugin marketplace add MrGeDiao/shuorenhua`, then `/plugin install shuorenhua@shuorenhua`. Other agents can use `npx skills add MrGeDiao/shuorenhua`. Other install guides: [install/](install/). Everything else in this repo is written in Chinese.
+**shuorenhua (说人话)** is a Chinese-first AI writing humanizer for Codex, Claude Code, Cursor, and ChatGPT. It removes AI-flavored patterns in Chinese text — sycophantic openers, performative engineer-speak, translationese, unsourced authority claims — under a fidelity contract: numbers stay attached to what they measure, relations and attribution never drift, and missing facts are never invented. It ships with an 82-case benchmark (blind inputs, dual-model judging, false-positive guards) and a long-form mode that cleans text without shrinking it.
+
+Claude Code: `/plugin marketplace add MrGeDiao/shuorenhua`, then `/plugin install shuorenhua@shuorenhua`. Other agents: `npx skills add MrGeDiao/shuorenhua`. More guides: [install/](install/). Everything else in this repo is written in Chinese.
 
 ## 常见问题
 
