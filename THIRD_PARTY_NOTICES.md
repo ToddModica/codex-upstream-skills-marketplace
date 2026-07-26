@@ -6,6 +6,7 @@
 |---|---|---|---|
 | Academic Research Skills | https://github.com/Imbad0202/academic-research-skills | CC-BY-NC-4.0 | research-toolkit |
 | Academic Research Skills Codex | https://github.com/Imbad0202/academic-research-skills-codex | CC-BY-NC-4.0 | research-toolkit |
+| Patent Disclosure Skill | https://github.com/handsomestWei/patent-disclosure-skill | MIT | research-toolkit |
 | Nature Skills | https://github.com/Yuan1z0825/nature-skills | Apache-2.0 | research-toolkit |
 | SciPilot Cite Skill | https://github.com/Haojae | MIT | research-toolkit |
 | SciPilot Figure Skill | https://github.com/Haojae | MIT | research-toolkit |

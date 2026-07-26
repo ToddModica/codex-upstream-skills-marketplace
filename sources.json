@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "generated_at": "2026-07-25T18:10:03+00:00",
+  "generated_at": "2026-07-26T11:48:41+00:00",
   "user_excluded": [
     "agently-mail",
     "agents",
@@ -440,6 +440,22 @@
       "license_scope": null,
       "action": "record-only",
       "reason": "Explicitly excluded by the user from plugin packaging."
+    },
+    {
+      "kind": "skill",
+      "name": "patent-disclosure-skill",
+      "upstream": "https://github.com/handsomestWei/patent-disclosure-skill.git",
+      "branch": "main",
+      "commit_sha": "67e0cd0718dc6b0cd839719d04f73a79e3601624",
+      "local_snapshot_sha": "67e0cd0718dc6b0cd839719d04f73a79e3601624",
+      "upstream_subpath": null,
+      "local_relative": "patent-disclosure-skill",
+      "target": "plugins/research-toolkit/skills/patent-disclosure-skill",
+      "license": "MIT",
+      "license_file": "LICENSE",
+      "license_scope": "skill-root",
+      "action": "copy",
+      "reason": null
     },
     {
       "kind": "skill",

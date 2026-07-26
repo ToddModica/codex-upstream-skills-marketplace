@@ -1,15 +1,15 @@
 {
   "name": "research-toolkit",
-  "version": "0.2.13",
-  "description": "Academic research, Nature-oriented writing, citation, figure, and ITASCA simulation tools.",
+  "version": "0.3.0",
+  "description": "Academic research, patent disclosure, Nature-oriented writing, citation, figure, and ITASCA simulation tools.",
   "author": {
     "name": "research-toolkit maintainers"
   },
   "skills": "./skills/",
   "interface": {
     "displayName": "Research Toolkit",
-    "shortDescription": "Academic research, Nature, SciPilot, citations, figures, and ITASCA MCP.",
-    "longDescription": "Contains CC-BY-NC-4.0 Academic Research Skills, Apache-2.0 Nature Skills, MIT SciPilot Skills, and an optional MIT-licensed ITASCA MCP configuration.",
+    "shortDescription": "Academic research, patent disclosure, Nature, SciPilot, figures, and ITASCA MCP.",
+    "longDescription": "Contains academic research workflows, Chinese patent disclosure and plain-language patent reading, Nature and SciPilot Skills, and an optional ITASCA MCP configuration.",
     "developerName": "research-toolkit maintainers",
     "category": "Research",
     "capabilities": [
@@ -17,9 +17,9 @@
       "Analyze"
     ],
     "defaultPrompt": [
+      "Draft a Chinese patent technical disclosure from my project materials.",
       "Help me plan a citation-backed research section.",
-      "Recommend and create a publication-ready figure.",
-      "Help me connect to an ITASCA simulation session."
+      "Recommend and create a publication-ready figure."
     ]
   },
   "mcpServers": "./.mcp.json"

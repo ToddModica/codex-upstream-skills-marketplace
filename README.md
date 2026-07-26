@@ -13,6 +13,7 @@
 科研检索、论文写作、引用、数据作图和 ITASCA 数值模拟工具：
 
 - Academic Research 系列：`deep-research`、`academic-paper`、`academic-paper-reviewer`、`academic-pipeline`、`academic-research-suite`
+- 中国专利：`patent-disclosure-skill`，支持从项目材料挖掘专利点、查新并生成技术交底书，也支持把已有专利解读为通俗笔记和 Obsidian 知识图谱
 - Nature 系列：`nature-academic-search`、`nature-citation`、`nature-data`、`nature-figure`、`nature-paper2ppt`、`nature-polishing`、`nature-reader`、`nature-response`、`nature-writing`
 - SciPilot 系列：`scipilot-cite-skill`、`scipilot-figure-skill`、`scipilot-writing-skill`
 - MCP：`itasca-mcp`，通过 `uvx itasca-mcp` 启动；ITASCA 端桥接文件位于 `plugins/research-toolkit/assets/itasca-mcp-addon.py`
@@ -95,7 +96,7 @@ pwsh -NoLogo -NoProfile -File .\scripts\Update-Marketplace.ps1
 - 每天北京时间 01:17 自动检查上游；
 - 支持在 GitHub Actions 页面手动运行；
 - 按 `sources.json` 锁定的仓库和 Skill 子目录同步内容；
-- 同步 Academic Research、Nature、SciPilot、PPT Master、Bilibili 阅读器、PowerShell 安全调用、Taste 前端设计及其他已打包 Skills；
+- 同步 Academic Research、中国专利、Nature、SciPilot、PPT Master、Bilibili 阅读器、PowerShell 安全调用、Taste 前端设计及其他已打包 Skills；
 - 自动更新来源 commit SHA；
 - 校验 Marketplace、插件清单、全部 `SKILL.md`、MCP 配置和上游许可证；
 - 仅在内容发生变化时提升受影响插件的补丁版本并提交；
@@ -123,6 +124,7 @@ Academic Research、Nature、agent-skills 和 taste-skill 都可能是 monorepo�
 - `Imbad0202/academic-research-skills`：CC-BY-NC-4.0；
 - `Imbad0202/academic-research-skills-codex`：CC-BY-NC-4.0；
 - `Yuan1z0825/nature-skills`：Apache-2.0；
+- `handsomestWei/patent-disclosure-skill`：MIT；
 - `Misaka-Mikoto-Tech/agent-skills`：MIT；
 - SciPilot Skills（`https://github.com/Haojae`）：MIT；
 - `Leonxlnx/taste-skill`：MIT；
@@ -138,6 +140,8 @@ python -m pip install -r .\requirements.txt
 该 Skill 可选调用多个图像生成或素材检索服务。API Key 只应保存在环境变量或用户私有配置中，不要提交到本 Marketplace 仓库。
 
 安全提示：`ppt-master` 的上游脚本会按工作流需要启动本机预览服务、访问用户指定网页或第三方图像/API 服务、调用外部转换程序，并清理其项目目录内生成的临时资源。请仅处理可信输入，使用前检查目标项目路径，并只为确实需要的可选服务配置 API Key。
+
+`patent-disclosure-skill` 的 Markdown 主流程无需额外 Python 包；Word/PPT 转换和 Word 交付需安装其根目录 `requirements.txt`。国知局查新、PDF 专利解读、Mermaid 图示和 Obsidian 入库分别还有 Playwright、PyMuPDF、Node.js/`npx` 或 Obsidian 等可选依赖，详见 Skill 自带的 `INSTALL.md`。其工具可能联网下载公开专利、访问国知局和写入用户指定的 Obsidian 库；使用时应确认目标路径，并仅处理公开或已获授权的材料。
 
 对于许可证位于 monorepo 根目录的 Skill，同步时会在对应 Skill 目录写入 `UPSTREAM_LICENSE`。未确认允许再分发的 Skill 只保留来源记录，不复制到插件中。详细归属见 `THIRD_PARTY_NOTICES.md`。
 

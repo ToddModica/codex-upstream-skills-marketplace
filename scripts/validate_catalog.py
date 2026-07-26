@@ -17,6 +17,7 @@ REQUIRED_SKILLS = {
         "academic-pipeline",
         "academic-research-suite",
         "deep-research",
+        "patent-disclosure-skill",
         "nature-academic-search",
         "nature-citation",
         "nature-data",
