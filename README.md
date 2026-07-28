@@ -159,7 +159,18 @@ python -m pip install -r .\requirements.txt
 
 安全提示：`ppt-master` 的上游脚本会按工作流需要启动本机预览服务、访问用户指定网页或第三方图像/API 服务、调用外部转换程序，并清理其项目目录内生成的临时资源。请仅处理可信输入，使用前检查目标项目路径，并只为确实需要的可选服务配置 API Key。
 
-`patent-disclosure-skill` 的 Markdown 主流程无需额外 Python 包；Word/PPT 转换和 Word 交付需安装其根目录 `requirements.txt`。国知局查新、PDF 专利解读、Mermaid 图示和 Obsidian 入库分别还有 Playwright、PyMuPDF、Node.js/`npx` 或 Obsidian 等可选依赖，详见 Skill 自带的 `INSTALL.md`。其工具可能联网下载公开专利、访问国知局和写入用户指定的 Obsidian 库；使用时应确认目标路径，并仅处理公开或已获授权的材料。
+`patent-disclosure-skill` 的 Markdown 主流程无需额外 Python 包；Codex 安装插件时也**不会**自动安装其第三方依赖。首次使用前，按所需功能安装：
+
+| 功能 | 依赖 | 安装提醒 |
+| --- | --- | --- |
+| Word/PPT 转换、公式和 Word 交付 | `requirements.txt`（`python-docx`、`mammoth`、`python-pptx`、`matplotlib`） | 建议在独立虚拟环境运行 `python -m pip install -r requirements.txt`。 |
+| 国知局公布公告检索 | `tools/requirements-cnipa.txt`（Playwright）及 Chromium | 安装 Python 包后，执行 `python -m playwright install chromium`；该命令会下载浏览器运行时，应先征得用户同意。未安装时可降级使用 WebSearch。 |
+| PDF 专利通俗解读 | `tools/patent_reader/requirements.txt`（PyMuPDF） | 仅在需要处理 PDF 时安装。Obsidian 本体和目标库路径由用户自行确认。 |
+| Mermaid 图示转 PNG | Node.js、`tools/` 内的 `npm install`（`mmdc`/Puppeteer） | `npm install` 后通常可直接使用。若 Puppeteer 或 `mmdc` 提示找不到浏览器，`npx puppeteer browsers install chrome-headless-shell` 会下载浏览器运行时；**不得自动执行，必须先征得用户同意**。插件升级会重建缓存，届时可能需要重新安装此本地 Node 依赖。 |
+
+`ponytail` 的 Codex 生命周期 Hooks 只依赖 PATH 中可调用的 **Node.js**，不需要安装 npm 运行依赖。其基准测试才会额外使用 Python/`pandas`，普通插件使用不需要。Hooks 会改变 Codex 会话中的开发指令；请只在审查 `/hooks` 后启用。
+
+专利工具可能联网下载公开专利、访问国知局和写入用户指定的 Obsidian 库；使用时应确认目标路径，并仅处理公开或已获授权的材料。详见 Skill 自带的 `INSTALL.md`。
 
 对于许可证位于 monorepo 根目录的 Skill，同步时会在对应 Skill 目录写入 `UPSTREAM_LICENSE`。未确认允许再分发的 Skill 只保留来源记录，不复制到插件中。详细归属见 `THIRD_PARTY_NOTICES.md`。
 
