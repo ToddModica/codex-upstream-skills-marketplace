@@ -9,7 +9,7 @@ from pathlib import Path
 from pathlib import PurePosixPath
 
 ROOT = Path(__file__).resolve().parents[1]
-PLUGINS = ("research-toolkit", "writing-toolkit", "codex-utility-toolkit")
+PLUGINS = ("research-toolkit", "writing-toolkit", "codex-utility-toolkit", "ponytail")
 REQUIRED_SKILLS = {
     "research-toolkit": {
         "academic-paper",
@@ -43,6 +43,14 @@ REQUIRED_SKILLS = {
         "powershell-safe-invocation",
         "skill-creator",
         "skill-installer",
+    },
+    "ponytail": {
+        "ponytail",
+        "ponytail-audit",
+        "ponytail-debt",
+        "ponytail-gain",
+        "ponytail-help",
+        "ponytail-review",
     },
 }
 SEMVER = re.compile(r"^\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?(?:\+[0-9A-Za-z.-]+)?$")
@@ -88,7 +96,7 @@ def main() -> None:
     for path in (ROOT / "plugins").rglob("*"):
         if path.is_symlink():
             fail(f"{path.relative_to(ROOT)}: symbolic links are not allowed")
-        if path.is_file() and (path.name in FORBIDDEN_NAMES or path.name.startswith(".env.") or path.suffix.lower() in {".pem", ".key", ".p12", ".pfx"}):
+        if path.is_file() and (path.name in FORBIDDEN_NAMES or (path.name.startswith(".env.") and path.name != ".env.example") or path.suffix.lower() in {".pem", ".key", ".p12", ".pfx"}):
             fail(f"{path.relative_to(ROOT)}: forbidden credential-like file")
     mcp = json.loads((ROOT / "plugins/research-toolkit/.mcp.json").read_text(encoding="utf-8"))
     itasca = mcp.get("mcpServers", {}).get("itasca-mcp", {})
@@ -105,6 +113,8 @@ def main() -> None:
         fail("sources.json contains duplicate copy targets")
     source_by_name = {item["name"]: item for item in sources["sources"]}
     for plugin, names in REQUIRED_SKILLS.items():
+        if plugin == "ponytail":
+            continue
         for name in names:
             item = source_by_name.get(name)
             expected_target = f"plugins/{plugin}/skills/{name}"
@@ -114,6 +124,24 @@ def main() -> None:
                 license_path = ROOT / expected_target / "UPSTREAM_LICENSE"
                 if not license_path.is_file():
                     fail(f"{name}: repository-level UPSTREAM_LICENSE is missing")
+    ponytail = source_by_name.get("ponytail")
+    if not ponytail or ponytail.get("kind") != "plugin" or ponytail.get("action") != "copy-plugin":
+        fail("ponytail: complete plugin source lock is missing")
+    if ponytail.get("target") != "plugins/ponytail" or ponytail.get("license") != "MIT":
+        fail("ponytail: invalid target or redistribution license")
+    ponytail_root = ROOT / "plugins/ponytail"
+    ponytail_manifest = json.loads((ponytail_root / ".codex-plugin/plugin.json").read_text(encoding="utf-8"))
+    if ponytail_manifest.get("version") != ponytail.get("version"):
+        fail("ponytail: plugin version does not match the source lock")
+    if ponytail_manifest.get("hooks") != "./hooks/claude-codex-hooks.json":
+        fail("ponytail: expected lifecycle hooks are not declared")
+    if not (ponytail_root / "hooks/claude-codex-hooks.json").is_file():
+        fail("ponytail: hook definition is missing")
+    installed_ponytail_skills = {
+        path.parent.name for path in (ponytail_root / "skills").glob("*/SKILL.md")
+    }
+    if installed_ponytail_skills != REQUIRED_SKILLS["ponytail"]:
+        fail("ponytail: bundled Skill set does not match the required set")
     for item in sources["sources"]:
         if item.get("commit_sha") and not SHA.match(str(item["commit_sha"])):
             fail(f"{item['name']}: invalid commit SHA")
@@ -121,6 +149,15 @@ def main() -> None:
             fail(f"{item['name']}: unsafe source or target path")
         if item["action"] == "copy" and not (ROOT / item["target"] / "SKILL.md").is_file():
             fail(f"{item['name']}: locked target is missing SKILL.md")
+        if item["action"] == "copy-plugin":
+            target = ROOT / item["target"]
+            if not target.resolve().is_relative_to((ROOT / "plugins").resolve()):
+                fail(f"{item['name']}: plugin target escapes plugins/")
+            if item.get("license") not in ALLOWED_LICENSES:
+                fail(f"{item['name']}: plugin copy has an unapproved license")
+            license_path = target / str(item.get("license_file"))
+            if not license_path.is_file():
+                fail(f"{item['name']}: plugin license file is missing")
         if item["action"] == "copy":
             target = ROOT / item["target"]
             if not target.resolve().is_relative_to((ROOT / "plugins").resolve()):

@@ -1,6 +1,6 @@
 # Codex 科研工具 Marketplace
 
-这是一个可直接安装到 Codex 的私有 GitHub Marketplace，用于统一分发、锁定版本并自动更新科研、写作和通用工具 Skills。仓库中的第三方 Skill 均保留原始目录结构、脚本、参考资料、资源文件及许可证。
+这是一个可直接安装到 Codex 的私有 GitHub Marketplace，用于统一分发、锁定版本并自动更新科研、写作、通用工具和开发工作流插件。仓库中的第三方 Skill 与独立插件均保留原始目录结构、脚本、参考资料、资源文件及许可证。
 
 ## 本仓库许可证
 
@@ -42,6 +42,19 @@
 - `skill-creator`
 - `skill-installer`
 
+### ponytail
+
+独立的极简开发工作流插件，完整保留上游 6 个 Skills、资源、测试和生命周期 Hooks：
+
+- `ponytail`：优先选择能够完成任务的最小实现；
+- `ponytail-review`：检查当前差异中的过度设计；
+- `ponytail-audit`：扫描整个仓库，识别可删除或简化的结构；
+- `ponytail-debt`：汇总代码中的 `ponytail:` 技术债标记；
+- `ponytail-gain`：显示 Ponytail 的基准收益摘要；
+- `ponytail-help`：显示模式、Skills 与命令速查。
+
+当前插件版本为 `4.8.4`，锁定上游 commit 为 `16f29800fd2681bdf24f3eb4ccffe38be3baec6b`。版本与 commit 在 `sources.json` 中分别记录，以保持 Ponytail 各平台清单的版本一致性。Ponytail 的 Hooks 会在会话开始、子代理启动和用户提交提示时运行；Codex 首次加载时会要求用户通过 `/hooks` 审查并信任，未信任时不会执行。
+
 ## Windows 安装
 
 需要先安装 Codex CLI 和 Git for Windows。初始化脚本默认把 Marketplace 注册为 Git 源 `ToddModica/codex-skills-github-marketplace@main`，并会启用 Windows Git 长路径支持：
@@ -50,7 +63,7 @@
 pwsh -NoLogo -NoProfile -File .\scripts\Initialize-Marketplace.ps1
 ```
 
-脚本会检查 Codex CLI 和 Git、注册 `research-toolkit-marketplace`，并安装三个插件。若 Git Marketplace 注册失败，脚本会回退到当前本地仓库路径，避免 Codex 设置中的“插件 / 市场”来源丢失。安装完成后请新建一个 Codex 任务，使新 Skills 和 MCP 工具生效。
+脚本会检查 Codex CLI 和 Git、注册 `research-toolkit-marketplace`，并安装四个插件。若 Git Marketplace 注册失败，脚本会回退到当前本地仓库路径，避免 Codex 设置中的“插件 / 市场”来源丢失。安装完成后请新建一个 Codex 任务，使新 Skills、Hooks 和 MCP 工具生效。
 
 也可以手动安装：
 
@@ -60,6 +73,7 @@ codex plugin marketplace add ToddModica/codex-skills-github-marketplace --ref ma
 codex plugin add research-toolkit@research-toolkit-marketplace
 codex plugin add writing-toolkit@research-toolkit-marketplace
 codex plugin add codex-utility-toolkit@research-toolkit-marketplace
+codex plugin add ponytail@research-toolkit-marketplace
 ```
 
 如果是在一台新电脑上，不需要先复制本机的 Skills 目录。只要该电脑已经登录到有权限访问本私有仓库的 GitHub 账号，并安装了 Codex CLI 与 Git for Windows，就可以直接把 GitHub 仓库地址交给 Codex 注册为 Git Marketplace：
@@ -69,6 +83,7 @@ codex plugin marketplace add https://github.com/ToddModica/codex-skills-github-m
 codex plugin add research-toolkit@research-toolkit-marketplace
 codex plugin add writing-toolkit@research-toolkit-marketplace
 codex plugin add codex-utility-toolkit@research-toolkit-marketplace
+codex plugin add ponytail@research-toolkit-marketplace
 ```
 
 如果已经克隆了本仓库，也可以用初始化脚本显式指定 GitHub 地址：
@@ -87,7 +102,7 @@ pwsh -NoLogo -NoProfile -File .\scripts\Initialize-Marketplace.ps1 `
 pwsh -NoLogo -NoProfile -File .\scripts\Update-Marketplace.ps1
 ```
 
-更新脚本会执行 Git Marketplace 注册/刷新、校验 Marketplace 仍可见，并重新安装三个插件。更新完成后同样需要新建 Codex 任务。
+更新脚本会执行 Git Marketplace 注册/刷新、校验 Marketplace 仍可见，并重新安装四个插件。更新完成后同样需要新建 Codex 任务。
 
 ## 自动更新
 
@@ -95,8 +110,8 @@ pwsh -NoLogo -NoProfile -File .\scripts\Update-Marketplace.ps1
 
 - 每天北京时间 01:17 自动检查上游；
 - 支持在 GitHub Actions 页面手动运行；
-- 按 `sources.json` 锁定的仓库和 Skill 子目录同步内容；
-- 同步 Academic Research、中国专利、Nature、SciPilot、PPT Master、Bilibili 阅读器、PowerShell 安全调用、Taste 前端设计及其他已打包 Skills；
+- 按 `sources.json` 锁定的仓库、Skill 子目录或完整插件目录同步内容；
+- 同步 Academic Research、中国专利、Nature、SciPilot、PPT Master、Ponytail、Bilibili 阅读器、PowerShell 安全调用、Taste 前端设计及其他已打包内容；
 - 自动更新来源 commit SHA；
 - 校验 Marketplace、插件清单、全部 `SKILL.md`、MCP 配置和上游许可证；
 - 仅在内容发生变化时提升受影响插件的补丁版本并提交；
@@ -130,6 +145,9 @@ Academic Research、Nature、agent-skills 和 taste-skill 都可能是 monorepo�
 - `Leonxlnx/taste-skill`：MIT；
 - `hugohe3/ppt-master`：MIT；
 - `itasca-mcp`：MIT。
+- `DietrichGebert/ponytail`：MIT。
+
+Ponytail 以独立插件完整同步，不会并入 `research-toolkit`。同步器排除 `.git`、虚拟环境、真实 `.env` 和私钥类文件，拒绝越界路径及符号链接，并保留经检查不含凭据的 `.env.example`。其运行时 Hooks 不访问网络，但会改变 Codex 会话中的开发指令；请只在审查 `/hooks` 后启用。
 
 `ppt-master` 的插件包包含其上游 `skills/ppt-master` 完整目录和 Python 依赖清单，但 Codex 安装插件时不会自动执行第三方依赖安装。首次实际使用前，请在已安装的 Skill 目录运行：
 

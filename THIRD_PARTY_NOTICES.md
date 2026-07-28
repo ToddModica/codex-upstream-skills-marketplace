@@ -19,6 +19,9 @@
 | stop-slop | https://github.com/hardikpandya/stop-slop | MIT | writing-toolkit |
 | Taste Skill | https://github.com/Leonxlnx/taste-skill | MIT | codex-utility-toolkit |
 | PPT Master | https://github.com/hugohe3/ppt-master | MIT | codex-utility-toolkit |
+| Ponytail | https://github.com/DietrichGebert/ponytail | MIT | ponytail |
+
+Ponytail 作为独立插件完整保留上游许可证、版本、Skills、Hooks、脚本、测试与资源；锁定 commit 另行记录在 `sources.json` 中。
 
 由 Codex 本地发行环境提供并带有 Apache-2.0 许可证的 `doc`、`pdf`、`imagegen`、`openai-docs`、`skill-creator` 和 `skill-installer`，其许可证文件保留在各自 Skill 目录中。
 

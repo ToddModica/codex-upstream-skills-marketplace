@@ -73,13 +73,24 @@ def safe_copytree(source: Path, destination: Path) -> None:
             name
             for name in names
             if name in DENY_NAMES
-            or name.startswith(".env.")
+            or (name.startswith(".env.") and name != ".env.example")
             or Path(name).suffix.lower() in DENY_SUFFIXES
         }
     shutil.copytree(source, destination, ignore=ignore)
     for copied in destination.rglob("*"):
         if copied.is_file():
             os.chmod(copied, stat.S_IRUSR | stat.S_IWUSR | stat.S_IRGRP | stat.S_IROTH)
+
+
+def plugin_version(destination: Path) -> str:
+    manifest_path = destination / ".codex-plugin" / "plugin.json"
+    if not manifest_path.is_file():
+        raise RuntimeError(f"Plugin manifest missing: {manifest_path}")
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    upstream_version = str(manifest.get("version", ""))
+    if not upstream_version:
+        raise RuntimeError(f"Plugin version missing: {manifest_path}")
+    return upstream_version
 
 
 def checkout(
@@ -118,13 +129,21 @@ def main() -> None:
     )
     parser.add_argument("--remote", action="store_true", help="clone each GitHub source at its locked SHA before copying")
     parser.add_argument("--check", action="store_true", help="only validate sources and target paths")
+    parser.add_argument("--name", action="append", help="synchronize only the named source; may be repeated")
     args = parser.parse_args()
     payload = json.loads(args.sources.read_text(encoding="utf-8"))
+    selected = set(args.name or [])
+    known_names = {str(item["name"]) for item in payload["sources"]}
+    unknown = selected - known_names
+    if unknown:
+        raise RuntimeError(f"Unknown source name(s): {', '.join(sorted(unknown))}")
     temporary = tempfile.TemporaryDirectory(prefix="codex-skill-sync-") if args.remote else None
     checkout_cache: dict[tuple[str, str], Path] = {}
     try:
         for record in payload["sources"]:
             if record["kind"] != "skill" or record["action"] != "copy":
+                continue
+            if selected and str(record["name"]) not in selected:
                 continue
             source = args.local_skills_root / str(record["local_relative"])
             repository_root = None
@@ -157,8 +176,39 @@ def main() -> None:
                     shutil.copy2(license_source, upstream_license)
                     os.chmod(upstream_license, stat.S_IRUSR | stat.S_IWUSR | stat.S_IRGRP | stat.S_IROTH)
             print(f"synced {record['name']} -> {target.relative_to(ROOT)}")
+        for record in payload["sources"]:
+            if record["kind"] != "plugin" or record["action"] != "copy-plugin":
+                continue
+            if selected and str(record["name"]) not in selected:
+                continue
+            if not args.remote:
+                raise RuntimeError(f"{record['name']}: complete plugin sources require --remote synchronization")
+            repository_root = checkout(record, Path(temporary.name), checkout_cache)
+            source = repository_root
+            if record.get("upstream_subpath"):
+                source = (repository_root / str(record["upstream_subpath"])).resolve()
+                if not source.is_relative_to(repository_root.resolve()):
+                    raise RuntimeError(f"{record['name']}: upstream_subpath escapes the checkout")
+            target = ROOT / str(record["target"])
+            manifest_path = source / ".codex-plugin" / "plugin.json"
+            if not manifest_path.is_file():
+                raise RuntimeError(f"{record['name']}: upstream plugin.json is missing")
+            manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+            if manifest.get("name") != record["name"]:
+                raise RuntimeError(f"{record['name']}: upstream plugin name does not match the source lock")
+            upstream_version = str(manifest.get("version", ""))
+            if not upstream_version:
+                raise RuntimeError(f"{record['name']}: upstream plugin version is missing")
+            if args.check:
+                continue
+            if record.get("version") != upstream_version:
+                record["version"] = upstream_version
+                args.sources.write_text(json.dumps(payload, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
+            safe_copytree(source, target)
+            version = plugin_version(target)
+            print(f"synced plugin {record['name']} {version} -> {target.relative_to(ROOT)}")
         mcp = next(item for item in payload["sources"] if item["kind"] == "mcp")
-        if mcp["action"] == "mcp-config-and-addon" and not args.check:
+        if mcp["action"] == "mcp-config-and-addon" and not args.check and (not selected or str(mcp["name"]) in selected):
             mcp_source = checkout(mcp, Path(temporary.name), checkout_cache) if args.remote else args.itasca_mcp_root
             addon = mcp_source / "addon.py"
             if not addon.is_file():

@@ -7,7 +7,7 @@ param(
 
 $ErrorActionPreference = 'Stop'
 $marketplaceName = 'research-toolkit-marketplace'
-$plugins = @('research-toolkit', 'writing-toolkit', 'codex-utility-toolkit')
+$plugins = @('research-toolkit', 'writing-toolkit', 'codex-utility-toolkit', 'ponytail')
 
 function Invoke-Native {
     param(

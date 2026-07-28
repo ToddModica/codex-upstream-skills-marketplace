@@ -23,12 +23,20 @@ def remote_branch_head(url: str, branch: str) -> str:
 def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--sources", type=Path, default=ROOT / "sources.json")
+    parser.add_argument("--name", action="append", help="refresh only the named source; may be repeated")
     args = parser.parse_args()
     payload = json.loads(args.sources.read_text(encoding="utf-8"))
+    selected = set(args.name or [])
+    known_names = {str(item["name"]) for item in payload["sources"]}
+    unknown = selected - known_names
+    if unknown:
+        raise RuntimeError(f"Unknown source name(s): {', '.join(sorted(unknown))}")
     changed = False
     heads: dict[tuple[str, str], str] = {}
     for item in payload["sources"]:
-        if item.get("action") not in {"copy", "mcp-config-and-addon"}:
+        if selected and str(item["name"]) not in selected:
+            continue
+        if item.get("action") not in {"copy", "copy-plugin", "mcp-config-and-addon"}:
             continue
         url = item.get("upstream")
         if not url:

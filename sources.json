@@ -602,6 +602,22 @@
       "reason": null
     },
     {
+      "kind": "plugin",
+      "name": "ponytail",
+      "upstream": "https://github.com/DietrichGebert/ponytail.git",
+      "branch": "main",
+      "commit_sha": "16f29800fd2681bdf24f3eb4ccffe38be3baec6b",
+      "version": "4.8.4",
+      "upstream_subpath": null,
+      "local_relative": null,
+      "target": "plugins/ponytail",
+      "license": "MIT",
+      "license_file": "LICENSE",
+      "license_scope": "repository-root",
+      "action": "copy-plugin",
+      "reason": "Complete upstream Codex plugin retained as a separate Marketplace package; upstream version and commit SHA are locked independently."
+    },
+    {
       "kind": "mcp",
       "name": "itasca-mcp",
       "upstream": "https://github.com/yusong652/itasca-mcp.git",

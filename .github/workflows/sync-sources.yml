@@ -30,6 +30,8 @@ jobs:
         run: |
           changed="$(git diff --name-only)"
           plugins=""
+          # Ponytail preserves the version shared by all of its upstream platform
+          # manifests, so only the three locally versioned toolkits are bumped here.
           for plugin in research-toolkit writing-toolkit codex-utility-toolkit; do
             if echo "$changed" | grep -q "^plugins/$plugin/"; then plugins="$plugins $plugin"; fi
           done
