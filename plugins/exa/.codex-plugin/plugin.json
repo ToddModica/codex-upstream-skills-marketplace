@@ -1,0 +1,23 @@
+{
+  "name": "exa",
+  "version": "0.1.0",
+  "description": "Search and fetch web content through Exa's remote MCP server.",
+  "author": {
+    "name": "ToddModica",
+    "url": "https://github.com/ToddModica"
+  },
+  "repository": "https://github.com/ToddModica/codex-upstream-skills-marketplace",
+  "license": "MIT",
+  "interface": {
+    "displayName": "Exa",
+    "shortDescription": "Web search and page retrieval through Exa MCP.",
+    "longDescription": "Connects Codex to Exa's Streamable HTTP MCP server. Authentication reads EXA_API_KEY from the local user environment; no secret is stored in this plugin.",
+    "developerName": "ToddModica",
+    "category": "Productivity",
+    "capabilities": [],
+    "defaultPrompt": [
+      "Use Exa to search the web or fetch a page when another search provider is unavailable."
+    ]
+  },
+  "mcpServers": "./.mcp.json"
+}
