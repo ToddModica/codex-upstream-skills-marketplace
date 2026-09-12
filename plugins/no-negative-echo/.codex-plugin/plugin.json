@@ -1,0 +1,38 @@
+{
+  "name": "no-negative-echo",
+  "version": "0.1.2",
+  "description": "Keep rejected wording and session residue out of final deliverables.",
+  "author": {
+    "name": "LB623",
+    "url": "https://github.com/LB623"
+  },
+  "homepage": "https://github.com/LB623/no-negative-echo",
+  "repository": "https://github.com/LB623/no-negative-echo",
+  "license": "MIT",
+  "keywords": [
+    "writing",
+    "finalization",
+    "quality"
+  ],
+  "skills": "./skills/",
+  "hooks": "./hooks/hooks.json",
+  "interface": {
+    "displayName": "No Negative Echo",
+    "shortDescription": "Clean final deliverables of session residue",
+    "longDescription": "Finalize artifacts from the accepted result while keeping rejected proposals, stale wording, and session-only corrections out of user-facing surfaces.",
+    "developerName": "LB623",
+    "category": "Writing",
+    "capabilities": [
+      "Instructions",
+      "Lifecycle hooks"
+    ],
+    "websiteURL": "https://github.com/LB623/no-negative-echo",
+    "defaultPrompt": [
+      "Finalize this artifact with No Negative Echo.",
+      "Check every user-facing surface for session residue."
+    ],
+    "brandColor": "#C96F32",
+    "composerIcon": "./skills/no-negative-echo/assets/icon-400.png",
+    "logo": "./skills/no-negative-echo/assets/icon.png"
+  }
+}

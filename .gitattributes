@@ -1,0 +1,14 @@
+# Keep vendor text stable across Windows and Linux so scheduled syncs do not
+# create commits solely because of CRLF/LF conversion.
+* text=auto eol=lf
+
+# Common binary artifacts carried by bundled Skills.
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.pdf binary
+*.docx binary
+*.xlsx binary
+*.pptx binary
+*.zip binary

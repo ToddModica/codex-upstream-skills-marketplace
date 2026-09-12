@@ -1,0 +1,45 @@
+{
+  "name": "research-toolkit-marketplace",
+  "owner": {
+    "name": "ToddModica"
+  },
+  "description": "Public upstream Skills Marketplace shared with Codex (from ToddModica/codex-upstream-skills-marketplace).",
+  "plugins": [
+    {
+      "name": "research-toolkit",
+      "source": "./plugins/research-toolkit",
+      "description": "Academic research, patent disclosure, Nature-oriented writing, citation, figure, and ITASCA simulation tools.",
+      "category": "Productivity"
+    },
+    {
+      "name": "writing-toolkit",
+      "source": "./plugins/writing-toolkit",
+      "description": "Chinese and English prose editing skills with natural-language style checks.",
+      "category": "Productivity"
+    },
+    {
+      "name": "codex-utility-toolkit",
+      "source": "./plugins/codex-utility-toolkit",
+      "description": "Upstream presentation, document, PDF, image, Bilibili, PowerShell, frontend design, and skill-development utilities.",
+      "category": "Productivity"
+    },
+    {
+      "name": "ponytail",
+      "source": "./plugins/ponytail",
+      "description": "Lazy senior dev mode. Forces the simplest, shortest solution that actually works: YAGNI, stdlib first, no unrequested abstractions.",
+      "category": "Productivity"
+    },
+    {
+      "name": "watermarks-remover",
+      "source": "./plugins/watermarks-remover",
+      "description": "Inspect and clean AI provenance metadata and invisible Unicode from content you own.",
+      "category": "Productivity"
+    },
+    {
+      "name": "no-negative-echo",
+      "source": "./plugins/no-negative-echo",
+      "description": "Keep rejected wording and session residue out of final deliverables.",
+      "category": "Productivity"
+    }
+  ]
+}

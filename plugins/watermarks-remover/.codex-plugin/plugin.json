@@ -1,0 +1,18 @@
+{
+  "name": "watermarks-remover",
+  "version": "0.1.15",
+  "description": "Inspect and clean AI provenance metadata and invisible Unicode from content you own.",
+  "author": {
+    "name": "watermarks-remover contributors; marketplace packaging by research-toolkit maintainers"
+  },
+  "skills": "./skills/",
+  "interface": {
+    "displayName": "Watermarks Remover",
+    "shortDescription": "Clean AI provenance metadata and invisible text marks from owned content.",
+    "longDescription": "Provides remove-ai-marks for deterministic cleanup of invisible Unicode and C2PA, EXIF, XMP, and container metadata in owned text and files. Python 3.10+ is required; optional external tools remain opt-in.",
+    "developerName": "watermarks-remover contributors",
+    "category": "Productivity",
+    "capabilities": [],
+    "defaultPrompt": "Inspect this file for provenance metadata and invisible Unicode, then clean a copy if appropriate."
+  }
+}
