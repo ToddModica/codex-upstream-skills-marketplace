@@ -36,7 +36,7 @@ description: Default Generate PPTX authority for source intake, planning, SVG au
 | User provides | Action |
 |---|---|
 | PDF / DOCX / Office document / XLSX / XLSM / PPTX / EPUB / HTML / LaTeX / RST / web URL | `python3 ${SKILL_DIR}/scripts/source_to_md.py <file_or_URL_or_dir> [<file_or_URL_or_dir> ...]` |
-| CSV / TSV | Read directly as a plain-text table source |
+| CSV / TSV | Read directly as a plain-text table source; a wide public dataset (World Bank, OECD, Eurostat) is first sliced to the needed rows and columns with a short Python snippet, never read whole |
 | Markdown | Read directly |
 | Topic only | Run [`topic-research`](stages/topic-research.md) first and use its research pair as source; Step 2 imports the pair without expanding the facts JSON's URLs |
 
@@ -365,6 +365,10 @@ python3 ${SKILL_DIR}/scripts/finalize_svg.py <project_path>
 Sound: the optional post-motion pass is [`animations.md`](../references/animations.md) §2.2. For a narrated MP4, [`generate-audio`](stages/generate-audio.md) owns the delivery choice.
 
 **Success criterion**: the command exits 0 and produces `exports/<project_name>_<timestamp>.pptx`, `validation/<project_name>_<timestamp>.report.json` with `passed` or `passed-with-warnings`, and `validation/<project_name>_<timestamp>.trace.json` when `--conversion-trace` was enabled. The exporter itself requires the current matching `final` quality report and exits nonzero on a missing, unreadable, unsupported, non-final, blocking, stale, or unverifiable one. Read the compact `[POSTFLIGHT]` receipt (`status`, `quality_gate`, slide count, warning counts, paths), disclose material warnings, and never `cat` the full report on success. Retain the report path for a later `deck_motion` handoff; postflight proves the package, not a later MP4 audio track.
+
+### Revision Round (delivered project)
+
+A delivered project that comes back with a change stays in this route; planning does not restart. Act at the owning layer. A wording change, an added condition, or a re-titled page edits the SVG, then its §IX block, `notes/total.md`, and every page that repeats the line (a chapter page's route, the contents page). A page inserted, dropped, or moved renumbers the roster first — files, footers, contents-page numbers, §IX blocks, `page_rhythm` / `page_visualizations` rows, `animations.json` keys, `notes/total.md` headings — then authors or removes the page; whatever the moved page carried moves with it: a Morph `from` names the new preceding page and a "next chapter" preview group follows its boundary. A deck-wide colour or family runs [`update_spec.py`](../scripts/docs/update_spec.md); derived tints, pages designed around the old value, and spec prose naming it are edited by hand, and a hand-edited Chart/Table fallback is re-stamped before the gate. Rerun the final quality gate (it compares §IX with `svg_output/`), `animation_config.py validate`, 7.1 when notes changed, 7.2, and 7.3; calibration, the early gate, and `verify-charts` return only when a type role, the first pages, or a chart's geometry changed. Earlier exports stay; the new ones carry their own timestamp.
 
 ## ✅ Generate PPTX Complete
 

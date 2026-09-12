@@ -112,17 +112,23 @@ def _is_project_tree(source_path: Path) -> bool:
     A sibling directory such as ``projects/<slug>_web_sources/`` (topic-research
     output) is scratch material, not another project's tree.
     """
+    projects_root = PROJECTS_ROOT.resolve()
+    source_path = source_path.resolve()
     try:
-        relative = source_path.resolve().relative_to(PROJECTS_ROOT.resolve())
+        relative = source_path.relative_to(projects_root)
     except ValueError:
         return False
     if not relative.parts:
         return False
-    root = PROJECTS_ROOT.resolve() / relative.parts[0]
-    return any(
-        (root / marker).exists()
-        for marker in ("svg_output", "design_spec.md", "spec_lock.md", "README.md")
-    )
+    for root in source_path.parents:
+        if root == projects_root:
+            break
+        if any(
+            (root / marker).exists()
+            for marker in ("svg_output", "design_spec.md", "spec_lock.md", "README.md")
+        ):
+            return True
+    return False
 
 
 def _validate_image_manifest(
@@ -823,6 +829,7 @@ class ProjectManager:
             "notes": [],
             "skipped": [],
         }
+        moved_web_sources: dict[Path, Path] = {}
 
         expanded_items: list[str] = []
         supplied_dirs: list[Path] = []
@@ -881,7 +888,20 @@ class ProjectManager:
 
             source_path = Path(item)
             if not source_path.exists():
-                summary["skipped"].append(f"{item}: path not found")
+                moved_home = next(
+                    (
+                        moved
+                        for origin, moved in moved_web_sources.items()
+                        if is_within_path(source_path, origin)
+                    ),
+                    None,
+                )
+                if moved_home is not None:
+                    summary["notes"].append(
+                        f"{item}: already imported with its research pair under {moved_home}"
+                    )
+                else:
+                    summary["skipped"].append(f"{item}: path not found")
                 continue
             if source_path.is_dir():
                 summary["skipped"].append(f"{item}: directories are not supported")
@@ -959,6 +979,7 @@ class ProjectManager:
                         target.parent.mkdir(parents=True, exist_ok=True)
                         shutil.move(str(web_sources), str(target))
                         summary["analysis"].append(str(target))
+                        moved_web_sources[web_sources] = target
                 if asset_dir is not None:
                     summary["assets"].append(str(asset_dir))
                     self._propagate_image_assets(asset_dir, project_dir)

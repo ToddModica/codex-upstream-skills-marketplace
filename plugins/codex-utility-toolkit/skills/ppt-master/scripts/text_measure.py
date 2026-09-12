@@ -50,6 +50,7 @@ _PREFERRED_BREAK_PUNCTUATION = frozenset('，。；：')
 # visibly short line, so the greedy fill wins.
 _PREFERRED_BREAK_MIN_FILL = 0.75
 _LATIN_TOKEN_CONNECTORS = frozenset("'’._:/+%@#-")
+_WORD_JOIN_CONTROLS = frozenset('\u034f\u200c\u200d\u2060')
 # A unit-like sign glued to a number stays with it: never break "71" | "%".
 _NUMBER_SUFFIXES = frozenset("%‰°")
 _WEIGHTS = ('normal', 'bold', '100', '200', '300', '400', '500', '600', '700', '800', '900')
@@ -60,6 +61,44 @@ _CALIBRATION_DIGITS_SAMPLE = '0123456789'
 # A source line: dataset ids, years, brackets and caps mixed into prose.
 _CALIBRATION_CITATION_SAMPLE = 'NYC DOE, dataset sgsi-66kk (2018-19 to 2022-23), v2.1'
 _CORE_CALIBRATION_ROLES = ('body', 'title', 'subtitle', 'annotation')
+# Scripts the CJK/Latin columns do not describe; a rate column is added for
+# each one the planned outline (or --sample) actually uses.
+_SCRIPT_RATE_LABELS = {
+    'THAI': 'Thai', 'LAO': 'Lao', 'KHMER': 'Khmer', 'MYANMAR': 'Myanmar',
+    'TIBETAN': 'Tibetan', 'DEVANAGARI': 'Devanagari', 'BENGALI': 'Bengali',
+    'GURMUKHI': 'Gurmukhi', 'GUJARATI': 'Gujarati', 'TAMIL': 'Tamil',
+    'TELUGU': 'Telugu', 'KANNADA': 'Kannada', 'MALAYALAM': 'Malayalam',
+    'SINHALA': 'Sinhala', 'ARABIC': 'Arabic', 'HEBREW': 'Hebrew',
+    'CYRILLIC': 'Cyrillic', 'GREEK': 'Greek', 'ARMENIAN': 'Armenian',
+    'GEORGIAN': 'Georgian', 'ETHIOPIC': 'Ethiopic',
+}
+_SCRIPT_SAMPLE_MIN_CLUSTERS = 12
+_SCRIPT_SAMPLE_MAX_CLUSTERS = 40
+
+
+def _cluster_script(cluster: str) -> str | None:
+    """Return the rate label of a grapheme cluster's base letter, if any."""
+    for ch in cluster:
+        if unicodedata.category(ch)[0] not in {'L', 'N'}:
+            continue
+        prefix = unicodedata.name(ch, '').split(' ', 1)[0]
+        return _SCRIPT_RATE_LABELS.get(prefix)
+    return None
+
+
+def _script_rate_samples(texts: list[str]) -> dict[str, str]:
+    """Collect one measurement sample per script used by the planned text."""
+    clusters_by_script: dict[str, list[str]] = {}
+    for text in texts:
+        for cluster in split_project_text_clusters(text):
+            label = _cluster_script(cluster)
+            if label is not None:
+                clusters_by_script.setdefault(label, []).append(cluster)
+    return {
+        label: ''.join(clusters[:_SCRIPT_SAMPLE_MAX_CLUSTERS])
+        for label, clusters in clusters_by_script.items()
+        if len(clusters) >= _SCRIPT_SAMPLE_MIN_CLUSTERS
+    }
 _SLIDE_HEADING_RE = re.compile(
     r'^#{3,6}[ \t]+Slide[ \t]+([0-9]+|NN)\b.*$',
     flags=re.IGNORECASE | re.MULTILINE,
@@ -128,7 +167,11 @@ def _is_word_cluster(cluster: str) -> bool:
         ch
         for ch in cluster
         if unicodedata.category(ch) not in {'Mn', 'Mc', 'Me'}
+        and ch not in _WORD_JOIN_CONTROLS
     ]
+    if not bases:
+        # A standalone word joiner can sit between two rendered clusters.
+        return any(ch in _WORD_JOIN_CONTROLS for ch in cluster)
     return bool(bases) and all(
         ch.isdigit()
         or (
@@ -397,7 +440,7 @@ def _clean_planned_line(raw: str) -> str:
     return ' '.join(text.split())
 
 
-_JOINED_BLOCK_SEPARATOR_RE = re.compile(r'\s+[·•|/]\s+|；|;\s')
+_JOINED_BLOCK_SEPARATOR_RE = re.compile(r'\s+[·•|/]\s+|；|;(?=\s|[^\x00-\x7f])')
 
 
 def _split_joined_blocks(text: str) -> list[str]:
@@ -461,13 +504,17 @@ def _outline_candidates(
             value = _clean_planned_line(field_match.group('value'))
             if label == 'title':
                 if value and 'title' in candidates:
-                    candidates['title'].append((slide, value))
+                    candidates['title'].extend(
+                        (slide, part) for part in _split_joined_blocks(value)
+                    )
                 line_index += 1
                 continue
             if label == 'core message':
                 role = 'subtitle' if 'subtitle' in candidates else 'body'
                 if value and role in candidates:
-                    candidates[role].append((slide, value))
+                    candidates[role].extend(
+                        (slide, part) for part in _split_joined_blocks(value)
+                    )
                 line_index += 1
                 continue
 
@@ -530,6 +577,8 @@ def _calibration_payload(
     source: str,
     include_outline: bool,
     weights: dict[str, str] | None = None,
+    samples: list[str] | None = None,
+    previous_samples: dict[str, str] | None = None,
 ) -> dict[str, object]:
     weights = weights or {}
     longest = (
@@ -537,6 +586,15 @@ def _calibration_payload(
         if include_outline
         else {name: None for name, _family, _size in roles}
     )
+    planned_texts = list(samples or [])
+    outline_candidates = _outline_candidates(
+        project_path / 'design_spec.md',
+        {name for name, _family, _size in roles},
+    )
+    planned_texts.extend(text for rows in outline_candidates.values() for _slide, text in rows)
+    script_samples = _script_rate_samples(planned_texts)
+    # Retained rates refer to these exact samples; new roles use them too.
+    script_samples.update(previous_samples or {})
     cjk_length = len(split_project_text_clusters(_CALIBRATION_CJK_SAMPLE))
     latin_length = len(split_project_text_clusters(_CALIBRATION_LATIN_SAMPLE))
     digits_length = len(split_project_text_clusters(_CALIBRATION_DIGITS_SAMPLE))
@@ -559,10 +617,19 @@ def _calibration_payload(
             'caps_chars_per_100px': round(100.0 * latin_length / caps_width, 1),
             'digits_chars_per_100px': round(100.0 * digits_length / digits_width, 1),
             'citation_chars_per_100px': round(100.0 * citation_length / citation_width, 1),
+            'script_clusters_per_100px': {
+                label: round(
+                    100.0 * len(split_project_text_clusters(sample))
+                    / measure_text(sample, **style),
+                    1,
+                )
+                for label, sample in script_samples.items()
+            },
             'longest_planned_line': longest[name],
         }
     return {
         'roles': role_rows,
+        'script_samples': script_samples,
         'source': source,
         'generated_at': datetime.now(timezone.utc)
         .isoformat(timespec='seconds')
@@ -594,6 +661,11 @@ def _render_calibration_table(payload: dict[str, object], *, include_outline: bo
     role_rows = payload['roles']
     assert isinstance(role_rows, dict)
     headers = ['role', 'family', 'size', 'CJK ≈chars/100px', 'Latin ≈chars/100px', 'CAPS ≈chars/100px', 'DIGITS ≈chars/100px', 'CITE ≈chars/100px']
+    script_labels = sorted(
+        set(payload.get('script_samples') or {})
+        | {label for row in role_rows.values() for label in row.get('script_clusters_per_100px', {})}
+    )
+    headers.extend(f'{label} ≈clusters/100px' for label in script_labels)
     if include_outline:
         headers.append('longest planned line (px, slide, text)')
     lines = [
@@ -613,6 +685,8 @@ def _render_calibration_table(payload: dict[str, object], *, include_outline: bo
             f'{raw_row["digits_chars_per_100px"]:.1f}',
             f'{raw_row.get("citation_chars_per_100px", 0.0):.1f}',
         ]
+        script_rates = raw_row.get('script_clusters_per_100px') or {}
+        row.extend(f'{script_rates[label]:.1f}' if label in script_rates else '-' for label in script_labels)
         if include_outline:
             planned = raw_row['longest_planned_line']
             row.append(
@@ -628,6 +702,12 @@ def _render_calibration_table(payload: dict[str, object], *, include_outline: bo
         'rate) × 100; spaces and punctuation count as Latin, digits use the '
         'DIGITS rate.'
     )
+    if script_labels:
+        lines.append(
+            '[NOTE] a script column (' + ', '.join(script_labels) + ') counts '
+            'grapheme clusters of that script measured from the planned text; '
+            'use it instead of the Latin rate for runs in that script.'
+        )
     if include_outline:
         lines.append(
             '[NOTE] the longest planned line is the §IX wording; a line rewritten '
@@ -673,6 +753,19 @@ def _run_calibrate(args: argparse.Namespace) -> int:
         )
         return 2
     try:
+        output_path = project_path / 'validation' / 'text_calibration.json'
+        previous_roles = {}
+        previous_samples = {}
+        if args.role and output_path.is_file():
+            try:
+                previous = json.loads(output_path.read_text(encoding='utf-8'))
+            except (OSError, ValueError):
+                previous = {}
+            if isinstance(previous, dict):
+                if isinstance(previous.get('roles'), dict):
+                    previous_roles = previous['roles']
+                if isinstance(previous.get('script_samples'), dict):
+                    previous_samples = previous['script_samples']
         fallbacks: dict[str, str] = {}
         weights: dict[str, str] = {}
         roles = (
@@ -684,7 +777,13 @@ def _run_calibrate(args: argparse.Namespace) -> int:
             roles[name] = (family, size)
             weights[name] = weight
             fallbacks.pop(name, None)
-        ordered_roles = _ordered_roles(roles)
+        # Lock roles seed the first run; incremental calls only remeasure
+        # named roles and roles that have no saved calibration yet.
+        named_roles = {name for name, _family, _size, _weight in args.role}
+        ordered_roles = [
+            row for row in _ordered_roles(roles)
+            if row[0] in named_roles or row[0] not in previous_roles
+        ]
         if not ordered_roles:
             raise ValueError('no typography size roles were found')
         source = 'spec_lock.md' if lock_path.is_file() else '--role'
@@ -694,14 +793,25 @@ def _run_calibrate(args: argparse.Namespace) -> int:
             source=source,
             include_outline=args.outline,
             weights=weights,
+            samples=list(args.sample or []),
+            previous_samples=previous_samples,
         )
-        payload['notes'] = _fallback_notes(roles, fallbacks)
+        merged_roles = dict(previous_roles)
+        merged_roles.update(payload['roles'])
+        payload['roles'] = merged_roles
+        payload['notes'] = _fallback_notes(
+            {name: (row['family'], row['size']) for name, row in merged_roles.items()},
+            {
+                name: fallback for name, fallback in fallbacks.items()
+                if merged_roles[name]['family'] == roles[name][0]
+            },
+        )
         if args.outline and not (project_path / 'design_spec.md').is_file():
             payload['notes'].append(
                 'no design_spec.md in this project (Quick writes none), so the '
                 '--outline column has no §IX source and stays empty'
             )
-        bold_roles = sorted(name for name, weight in weights.items() if weight == 'bold')
+        bold_roles = sorted(name for name, row in merged_roles.items() if row.get('weight') == 'bold')
         payload['notes'].append(
             'rates for ' + ', '.join(bold_roles) + ' are measured at bold weight'
             if bold_roles else
@@ -710,21 +820,7 @@ def _run_calibrate(args: argparse.Namespace) -> int:
             'bold widens Latin and digits about 7%, while the bundled advance '
             'table gives CJK one width for both weights'
         )
-        output_path = project_path / 'validation' / 'text_calibration.json'
         output_path.parent.mkdir(parents=True, exist_ok=True)
-        if args.role and output_path.is_file():
-            # A --role run recalibrates only the named roles; keep the roles
-            # an earlier run already wrote, so "calibrate again only for a
-            # role never calibrated" is incremental, not a table overwrite.
-            try:
-                previous = json.loads(output_path.read_text(encoding='utf-8'))
-            except (OSError, ValueError):
-                previous = {}
-            previous_roles = previous.get('roles') if isinstance(previous, dict) else None
-            if isinstance(previous_roles, dict):
-                merged = dict(previous_roles)
-                merged.update(payload['roles'])
-                payload['roles'] = merged
         rendered_json = json.dumps(payload, ensure_ascii=False, indent=2)
         output_path.write_text(rendered_json + '\n', encoding='utf-8')
     except (OSError, ValueError) as exc:
@@ -780,6 +876,15 @@ def build_parser() -> argparse.ArgumentParser:
     calibrate = subparsers.add_parser('calibrate', help='Calibrate project typography roles.')
     calibrate.add_argument('project_path', type=Path)
     calibrate.add_argument('--outline', action='store_true')
+    calibrate.add_argument(
+        '--sample',
+        action='append',
+        default=[],
+        metavar='TEXT',
+        help='Planned text in a non-Latin, non-CJK script (Thai, Devanagari, '
+             'Arabic, Hebrew, Cyrillic, ...) measured as its own rate column; repeatable. The '
+             'design_spec.md outline is scanned for such scripts automatically.',
+    )
     calibrate.add_argument(
         '--role',
         action='append',

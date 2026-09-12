@@ -756,7 +756,7 @@ Convert project SVGs into PPTX. EMF/WMF images referenced from `svg_output/` are
 
 Each exported object is named after `data-pptx-shape-name`, else its SVG `id` (or `data-name`), else a positional `Group N` / `TextBox N`; forced-Morph `!!` names still win. The PowerPoint Selection and Animation panes therefore read like the source SVG.
 
-The lock's `primary_language` tags base-template default text (new text boxes, master and layout placeholders); a right-to-left language also makes those defaults right-to-left and right-aligned and points the theme's `Arab` / `Hebr` script font at the locked face.
+The deck language — the lock's `primary_language`, else the first page's root `<svg lang="...">` (Quick's channel), else `--primary-language TAG` — tags base-template default text (new text boxes, master and layout placeholders) and docProps; a right-to-left language also makes those defaults right-to-left and right-aligned, and the theme's script font for that language (`Arab`, `Hebr`, `Thai`, `Deva`, ...) points at the locked face, which a lockless roster takes from its pages. A run of Latin letters inside a non-Latin deck is tagged `en-US`.
 
 Native formulas use the two markers owned by
 [`native-formula.md`](../../references/native-formula.md). A standalone block
@@ -765,7 +765,13 @@ stores delimiter-free LaTeX in the JSON metadata of
 `<tspan data-pptx-inline-formula="...">preview</tspan>` inside ordinary text
 exports `m:oMath` in the same DrawingML paragraph as its surrounding runs; it
 inherits computed size and visible solid fill, then uses the project text
-language and Cambria Math.
+language and Cambria Math. LaTeX can be compile-checked before any SVG is
+written, so an unsupported command is caught at planning time:
+
+```bash
+python3 -c "import sys; sys.path.insert(0, 'skills/ppt-master/scripts'); from svg_to_pptx.native_objects.formula_compiler import compile_latex_to_omml as c; c(sys.argv[1])" '\frac{a}{b} \int_0^T e^{-i\omega t}\, dt'
+```
+
 Matrices, multiline derivations, and other high-structure expressions remain
 blocks. Formula replacement is always active, independent of
 `--native-charts-and-tables`: export replaces only the registered SVG preview
@@ -1033,7 +1039,9 @@ class-average estimate, with the existing fixed advances for monospaced faces.
   a JSON bounds object with `--json`.
 - `calibrate` measures fixed CJK and Latin samples for every typography role
   from `spec_lock.md` or repeatable `--role NAME:FAMILY:SIZE[:bold]` overrides, writes
-  `validation/text_calibration.json`, and prints a compact table or JSON. The
+  `validation/text_calibration.json`, and prints a compact table or JSON.
+  Incremental `--role` calls retain other saved roles with their weights, rates,
+  and script samples; unmeasured script cells display `-`. The
   estimator is additive across scripts, so a line mixing CJK with Latin words
   or digits is estimated as (CJK chars ÷ CJK rate + other chars ÷ Latin rate)
   × 100; spaces and ASCII punctuation count as Latin, fullwidth punctuation as
@@ -1117,6 +1125,8 @@ standards rather than this pipeline overview.
 ## `svg_position_calculator.py`
 
 Analyze and review supported chart coordinates after SVG generation.
+
+Numeric parameters and data values must be finite; NaN and either Infinity sign exit non-zero with the offending parameter or data point identified.
 
 Use this after `svg_quality_checker.py` passes, and only for chart types supported by this script: `bar`, `pie` / `donut`, `radar`, `line` / `area` / `scatter`, and `grid`. Area charts do not have a separate calculator mode: use `calc line` for the upper boundary points, then close the filled region to the plot area's bottom baseline (`y_max`) in the SVG.
 
