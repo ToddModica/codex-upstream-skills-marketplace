@@ -1,7 +1,7 @@
 [CmdletBinding()]
 param(
     [string]$RepositoryPath = (Split-Path -Parent $PSScriptRoot),
-    [string]$MarketplaceSource = 'ToddModica/codex-upstream-skills-marketplace',
+    [string]$MarketplaceSource = 'ToddModica/upstream-skills',
     [string]$MarketplaceRef = 'main'
 )
 

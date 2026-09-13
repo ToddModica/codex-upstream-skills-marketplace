@@ -27,15 +27,15 @@
 需要 Codex CLI 和 Git：
 
 ```powershell
-git clone https://github.com/ToddModica/codex-upstream-skills-marketplace.git
-Set-Location .\codex-upstream-skills-marketplace
+git clone https://github.com/ToddModica/upstream-skills.git
+Set-Location .\upstream-skills
 pwsh -NoLogo -NoProfile -File .\scripts\Initialize-Marketplace.ps1
 ```
 
 也可以直接注册 Git Marketplace 并按需安装：
 
 ```powershell
-codex plugin marketplace add https://github.com/ToddModica/codex-upstream-skills-marketplace.git --ref main
+codex plugin marketplace add https://github.com/ToddModica/upstream-skills.git --ref main
 codex plugin add research-toolkit@research-toolkit-marketplace
 codex plugin add writing-toolkit@research-toolkit-marketplace
 codex plugin add codex-utility-toolkit@research-toolkit-marketplace
@@ -180,7 +180,7 @@ codex plugin marketplace remove research-toolkit-marketplace
 
 ```powershell
 codex plugin marketplace remove research-toolkit-marketplace
-codex plugin marketplace add https://github.com/ToddModica/codex-upstream-skills-marketplace.git --ref <commit-sha>
+codex plugin marketplace add https://github.com/ToddModica/upstream-skills.git --ref <commit-sha>
 codex plugin add research-toolkit@research-toolkit-marketplace
 ```
 
@@ -191,7 +191,7 @@ codex plugin add research-toolkit@research-toolkit-marketplace
 公开上游 Skills 只需提供：
 
 ```text
-https://github.com/ToddModica/codex-upstream-skills-marketplace
+https://github.com/ToddModica/upstream-skills
 ```
 
 每台设备分别安装必要运行时，并在本机配置 API Key、Token、Cookie 或其他凭据。这些值不进入 Marketplace 仓库。
