@@ -10,6 +10,20 @@
 
 特别注意：Academic Research Skills 与其 Codex 版本使用 **CC-BY-NC-4.0**，要求署名并限制商业使用。其他已打包来源使用 MIT 或 Apache-2.0。完整归属见 `THIRD_PARTY_NOTICES.md`，每个 Skill 的锁定许可证位置见 `sources.json`。
 
+## 上游 GitHub 来源
+
+以下链接对应本公开 Marketplace 已打包的 Skill、插件和 MCP 桥接。锁定提交、分支、许可证与目标目录以 `sources.json` 为准。
+
+- Academic Research：[`academic-paper`、`academic-paper-reviewer`、`academic-pipeline`、`deep-research`](https://github.com/Imbad0202/academic-research-skills)；[`academic-research-suite`](https://github.com/Imbad0202/academic-research-skills-codex)。
+- Nature：[`nature-*` 九个工作流](https://github.com/Yuan1z0825/nature-skills)。
+- 专利与 SciPilot：[`patent-disclosure-skill`](https://github.com/handsomestWei/patent-disclosure-skill)；[`scipilot-cite-skill`](https://github.com/Haojae/scipilot-cite-skill)、[`scipilot-figure-skill`](https://github.com/Haojae/scipilot-figure-skill)、[`scipilot-writing-skill`](https://github.com/Haojae/scipilot-writing-skill)。
+- 写作：[`humanizer`](https://github.com/blader/humanizer)、[`humanizer-zh`](https://github.com/op7418/Humanizer-zh)、[`shuorenhua`](https://github.com/MrGeDiao/shuorenhua)、[`stop-slop`](https://github.com/hardikpandya/stop-slop)。
+- 开发与文档：[`bilibili-page-reader`、`powershell-safe-invocation`](https://github.com/Misaka-Mikoto-Tech/agent-skills)、[`design-taste-frontend`](https://github.com/Leonxlnx/taste-skill)、[`ppt-master`](https://github.com/hugohe3/ppt-master)、[`grilling`](https://github.com/mattpocock/skills)。
+- 插件与 MCP：[`ponytail`](https://github.com/DietrichGebert/ponytail)、[`watermarks-remover`](https://github.com/guillaumemeyer/watermarks-remover)、[`no-negative-echo`](https://github.com/LB623/no-negative-echo)、[`itasca-mcp`](https://github.com/yusong652/itasca-mcp)。
+- CAD 运行时：专利工具的 STEP/SVG 处理使用 [`CadQuery`](https://github.com/CadQuery/cadquery)。
+
+`imagegen`、`openai-docs`、`skill-creator`、`skill-installer`、`doc` 与 `pdf` 由 Codex 运行时提供；当前 `sources.json` 不含其可公开锁定的 GitHub 上游地址。
+
 ## 快速安装
 
 需要 Codex CLI 和 Git：
