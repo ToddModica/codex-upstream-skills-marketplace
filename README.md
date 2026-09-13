@@ -141,7 +141,7 @@ codex plugin add no-negative-echo@research-toolkit-marketplace
 
 ## 自动同步
 
-`.github/workflows/sync-sources.yml` 每天北京时间 01:17 检查上游，也支持手动触发。流程会：
+`.github/workflows/sync-sources.yml` 每天北京时间 01:47 检查上游，也支持手动触发。流程会：
 
 1. 更新 `sources.json` 中的上游 commit SHA；
 2. 只复制已确认可再分发的 Skill、插件或指定子目录；
