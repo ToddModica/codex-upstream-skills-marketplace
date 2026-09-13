@@ -2,8 +2,6 @@
 
 这是一个公开的 Codex Git Marketplace，用于分发具有明确上游来源和可再分发许可证的科研、写作、文档及开发工作流。每个第三方 Skill 保留原目录、脚本、参考资料、资源文件和许可证；版本与 commit SHA 记录在 `sources.json`。
 
-自行编写的 Skill 位于访问受限的 [`ToddModica/codex-personal-skills-marketplace`](https://github.com/ToddModica/codex-personal-skills-marketplace)。两座 Marketplace 可以同时安装。
-
 ## 许可证边界
 
 仓库根目录的 MIT License 只适用于本仓库新增的包装脚本、清单、校验器和文档，不会改变第三方内容的许可证。
@@ -194,12 +192,6 @@ codex plugin add research-toolkit@research-toolkit-marketplace
 
 ```text
 https://github.com/ToddModica/codex-upstream-skills-marketplace
-```
-
-需要完整个人配置时，再提供私有仓库地址并在新设备登录有访问权的 GitHub 账号：
-
-```text
-https://github.com/ToddModica/codex-personal-skills-marketplace
 ```
 
 每台设备分别安装必要运行时，并在本机配置 API Key、Token、Cookie 或其他凭据。这些值不进入 Marketplace 仓库。
