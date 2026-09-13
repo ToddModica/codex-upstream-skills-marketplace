@@ -167,7 +167,16 @@ def host_python() -> str | None:
 def _cadquery_ok(py: Path) -> tuple[bool, str]:
     try:
         out = subprocess.check_output(
-            [str(py), "-c", "import cadquery as cq; print(getattr(cq, '__version__', 'unknown'))"],
+            # Marketplace override: the OCP bindings can corrupt the heap while
+            # the interpreter finalizes after a successful import, so the probe
+            # prints its result and exits before finalization.
+            [
+                str(py),
+                "-c",
+                "import cadquery as cq, os, sys;"
+                " print(getattr(cq, '__version__', 'unknown'));"
+                " sys.stdout.flush(); sys.stderr.flush(); os._exit(0)",
+            ],
             env=isolated_env(),
             stderr=subprocess.STDOUT,
             timeout=45,

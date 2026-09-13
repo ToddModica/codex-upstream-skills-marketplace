@@ -524,4 +524,12 @@ def main(argv: list[str] | None = None) -> int:
 
 
 if __name__ == "__main__":
-    raise SystemExit(main())
+    _exit_code = main()
+    try:
+        sys.stdout.flush()
+        sys.stderr.flush()
+    except OSError:
+        pass
+    # Marketplace override: skip interpreter finalization, which can crash the
+    # heap after CadQuery/OCP work and replace the real status with a crash code.
+    os._exit(_exit_code)

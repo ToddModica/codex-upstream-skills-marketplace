@@ -123,19 +123,71 @@ def _resolve_venv_dir() -> Path:
 VENV_DIR = _resolve_venv_dir()'''
 
 
-def apply_cad_venv_short_path(target: Path) -> None:
-    module = target / "skills" / "patent-disclosure" / "tools" / "cad_venv.py"
-    text = module.read_text(encoding="utf-8")
-    if CAD_VENV_SHORT_PATH_BLOCK in text:
+CAD_QUERY_PROBE_ANCHOR = '''            [str(py), "-c", "import cadquery as cq; print(getattr(cq, '__version__', 'unknown'))"],'''
+
+CAD_QUERY_PROBE_REPLACEMENT = '''            # Marketplace override: the OCP bindings can corrupt the heap while
+            # the interpreter finalizes after a successful import, so the probe
+            # prints its result and exits before finalization.
+            [
+                str(py),
+                "-c",
+                "import cadquery as cq, os, sys;"
+                " print(getattr(cq, '__version__', 'unknown'));"
+                " sys.stdout.flush(); sys.stderr.flush(); os._exit(0)",
+            ],'''
+
+STEP_MAIN_ANCHOR = '''if __name__ == "__main__":
+    raise SystemExit(main())'''
+
+STEP_MAIN_REPLACEMENT = '''if __name__ == "__main__":
+    _exit_code = main()
+    try:
+        sys.stdout.flush()
+        sys.stderr.flush()
+    except OSError:
+        pass
+    # Marketplace override: skip interpreter finalization, which can crash the
+    # heap after CadQuery/OCP work and replace the real status with a crash code.
+    os._exit(_exit_code)'''
+
+
+def _patch_skill_text(path: Path, anchor: str, replacement: str, marker: str, label: str) -> None:
+    text = path.read_text(encoding="utf-8")
+    if marker in text:
         return
-    if text.count(CAD_VENV_ANCHOR) != 1:
-        raise RuntimeError("patent-disclosure-skill: upstream venv path definition changed")
-    module.write_text(text.replace(CAD_VENV_ANCHOR, CAD_VENV_SHORT_PATH_BLOCK, 1), encoding="utf-8")
+    if text.count(anchor) != 1:
+        raise RuntimeError(f"{label}: upstream text changed; expected exactly one anchor")
+    path.write_text(text.replace(anchor, replacement, 1), encoding="utf-8")
+
+
+def apply_patent_disclosure_skill_overrides(target: Path) -> None:
+    tools = target / "skills" / "patent-disclosure" / "tools"
+    _patch_skill_text(
+        tools / "cad_venv.py",
+        CAD_VENV_ANCHOR,
+        CAD_VENV_SHORT_PATH_BLOCK,
+        "PATENT_SKILL_CAD_VENV",
+        "patent-disclosure-skill/cad_venv venv path",
+    )
+    _patch_skill_text(
+        tools / "cad_venv.py",
+        CAD_QUERY_PROBE_ANCHOR,
+        CAD_QUERY_PROBE_REPLACEMENT,
+        "import cadquery as cq, os, sys",
+        "patent-disclosure-skill/cadquery probe",
+    )
+    _patch_skill_text(
+        tools / "step_to_views.py",
+        STEP_MAIN_ANCHOR,
+        STEP_MAIN_REPLACEMENT,
+        "os._exit(_exit_code)",
+        "patent-disclosure-skill/step_to_views exit",
+    )
 
 
 def apply_marketplace_overrides(name: str, target: Path) -> None:
     if name == "patent-disclosure-skill":
-        apply_cad_venv_short_path(target)
+        apply_patent_disclosure_skill_overrides(target)
         return
     if name == "remove-ai-marks":
         skill = target / "SKILL.md"
