@@ -18,7 +18,32 @@ from typing import Any
 
 _SHARED = Path(__file__).resolve().parent
 VENV_NAME = "cad-env"
-VENV_DIR = _SHARED / VENV_NAME
+VENV_OVERRIDE_ENV = "PATENT_SKILL_CAD_VENV"
+WINDOWS_PREFIX_BUDGET = 100
+
+
+def _default_venv_dir() -> Path:
+    """Return the in-tree cad-env, or a short root when Windows requires one.
+
+    Windows fails to load the OCP extension module when the interpreter prefix
+    is long, even with LongPathsEnabled set, so deep plugin caches get a short
+    per-user environment root instead of the in-tree location.
+    """
+    candidate = _SHARED / VENV_NAME
+    if os.name != "nt" or len(str(candidate)) <= WINDOWS_PREFIX_BUDGET:
+        return candidate
+    base = os.environ.get("LOCALAPPDATA") or str(Path.home())
+    return Path(base) / "codex-cad-env"
+
+
+def _resolve_venv_dir() -> Path:
+    override = os.environ.get(VENV_OVERRIDE_ENV, "").strip()
+    if override:
+        return Path(override)
+    return _default_venv_dir()
+
+
+VENV_DIR = _resolve_venv_dir()
 META_NAME = "cad_venv_meta.json"
 MIN_MINOR = (3, 10)
 MAX_MINOR = (3, 12)

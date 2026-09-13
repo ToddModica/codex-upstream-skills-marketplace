@@ -93,7 +93,50 @@ def plugin_version(destination: Path) -> str:
     return upstream_version
 
 
+CAD_VENV_ANCHOR = "VENV_DIR = _SHARED / VENV_NAME"
+
+CAD_VENV_SHORT_PATH_BLOCK = '''VENV_OVERRIDE_ENV = "PATENT_SKILL_CAD_VENV"
+WINDOWS_PREFIX_BUDGET = 100
+
+
+def _default_venv_dir() -> Path:
+    """Return the in-tree cad-env, or a short root when Windows requires one.
+
+    Windows fails to load the OCP extension module when the interpreter prefix
+    is long, even with LongPathsEnabled set, so deep plugin caches get a short
+    per-user environment root instead of the in-tree location.
+    """
+    candidate = _SHARED / VENV_NAME
+    if os.name != "nt" or len(str(candidate)) <= WINDOWS_PREFIX_BUDGET:
+        return candidate
+    base = os.environ.get("LOCALAPPDATA") or str(Path.home())
+    return Path(base) / "codex-cad-env"
+
+
+def _resolve_venv_dir() -> Path:
+    override = os.environ.get(VENV_OVERRIDE_ENV, "").strip()
+    if override:
+        return Path(override)
+    return _default_venv_dir()
+
+
+VENV_DIR = _resolve_venv_dir()'''
+
+
+def apply_cad_venv_short_path(target: Path) -> None:
+    module = target / "skills" / "patent-disclosure" / "tools" / "cad_venv.py"
+    text = module.read_text(encoding="utf-8")
+    if CAD_VENV_SHORT_PATH_BLOCK in text:
+        return
+    if text.count(CAD_VENV_ANCHOR) != 1:
+        raise RuntimeError("patent-disclosure-skill: upstream venv path definition changed")
+    module.write_text(text.replace(CAD_VENV_ANCHOR, CAD_VENV_SHORT_PATH_BLOCK, 1), encoding="utf-8")
+
+
 def apply_marketplace_overrides(name: str, target: Path) -> None:
+    if name == "patent-disclosure-skill":
+        apply_cad_venv_short_path(target)
+        return
     if name == "remove-ai-marks":
         skill = target / "SKILL.md"
         text = skill.read_text(encoding="utf-8")
