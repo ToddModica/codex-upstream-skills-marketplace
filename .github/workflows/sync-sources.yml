@@ -2,7 +2,8 @@ name: Sync upstream sources
 
 on:
   schedule:
-    - cron: '17 17 * * *'
+    # GitHub Actions uses UTC; 17:47 UTC is 01:47 Asia/Shanghai on the following day.
+    - cron: '47 17 * * *'
   workflow_dispatch:
 
 permissions:
