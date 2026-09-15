@@ -124,7 +124,7 @@
 <tr>
 <td nowrap><a href="skills/patent-disclosure/README.md"><code style="white-space:nowrap">patent-disclosure</code></a></td>
 <td nowrap>交底书编写</td>
-<td>不会写专利也没关系：材料丢进来，挖出真正能保护的点、查一圈在先技术，直接变成能交差的交底书（发明 / 实用新型 / 外观分套模板）</td>
+<td>不会写专利也没关系：材料丢进来，挖出真正能保护的点、查一圈在先技术，直接变成能交差的交底书（发明 / 实用新型 / 外观）。首篇定稿后还可做保护型 1+N 专利布局</td>
 <td>「交底书」</td>
 <td nowrap><a href="skills/patent-disclosure/README.md">详情</a></td>
 </tr>

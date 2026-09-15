@@ -4,7 +4,7 @@ from __future__ import annotations
 import sys
 import unittest
 from pathlib import Path
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock, patch
 
 PKG = Path(__file__).resolve().parents[1]
 ROOT = Path(__file__).resolve().parents[3]
@@ -16,8 +16,13 @@ from cnipa_epub_crawler import (
     EPUB_TITLE_RESULT,
     _RESULT_PAGE_READY_JS,
     apply_epub_type_filter,
+    search_epub_keywords,
     submit_index_search,
+    wait_for_epub_home_ready,
+    _goto,
+    _wait_selector,
 )
+from cnipa_epub_wait import DEFAULTS, EpubNavError
 from patent_type import (
     epub_checkbox_states,
     google_patents_websearch_query,
@@ -91,8 +96,9 @@ class SubmitIndexSearchTests(unittest.TestCase):
     def test_uses_committed_navigation_and_result_ready_wait(self) -> None:
         page = MagicMock()
         submit_index_search(page, "数据标注")
-        page.expect_navigation.assert_called_once_with(timeout=120_000, wait_until="commit")
+        page.expect_navigation.assert_called_once_with(timeout=40_000, wait_until="commit")
         page.wait_for_function.assert_called_once()
+        self.assertEqual(page.wait_for_function.call_args.kwargs.get("timeout"), 40_000)
         page.wait_for_load_state.assert_not_called()
         page.wait_for_timeout.assert_not_called()
 
@@ -125,6 +131,90 @@ class TitleConstantsTests(unittest.TestCase):
     def test_titles(self) -> None:
         self.assertEqual(EPUB_TITLE_RESULT, "专利查询结果展示")
         self.assertEqual(EPUB_TITLE_NO_HIT, "无查询结果")
+
+
+class FailFastWaitTests(unittest.TestCase):
+    def test_goto_uses_commit_and_30s(self) -> None:
+        page = MagicMock()
+        _goto(page, "http://epub.cnipa.gov.cn/", advanced=False)
+        kwargs = page.goto.call_args.kwargs
+        self.assertEqual(kwargs["wait_until"], "commit")
+        self.assertEqual(kwargs["timeout"], 30_000)
+
+    def test_goto_timeout_classified(self) -> None:
+        from playwright.sync_api import TimeoutError as PlaywrightTimeoutError
+
+        page = MagicMock()
+        page.goto.side_effect = PlaywrightTimeoutError("nav")
+        with self.assertRaises(EpubNavError) as ctx:
+            _goto(page, "http://epub.cnipa.gov.cn/Advanced", advanced=True)
+        self.assertEqual(ctx.exception.stage, "goto")
+        self.assertEqual(ctx.exception.hint, "keep_round1")
+
+    def test_home_ready_skips_goto_when_box_present(self) -> None:
+        page = MagicMock()
+        page.query_selector.return_value = object()
+        wait_for_epub_home_ready(page)
+        page.goto.assert_not_called()
+        page.wait_for_timeout.assert_not_called()
+
+    def test_gate_checks_before_sleep(self) -> None:
+        page = MagicMock()
+        page.query_selector.return_value = object()
+        _wait_selector(page, "#searchStr", advanced=False)
+        page.wait_for_timeout.assert_not_called()
+
+    def test_gate_timeout_classified(self) -> None:
+        page = MagicMock()
+        page.query_selector.return_value = None
+        page.url = "http://epub.cnipa.gov.cn/"
+        with self.assertRaises(EpubNavError) as ctx:
+            _wait_selector(page, "#searchStr", advanced=False, max_wait_sec=0.05)
+        self.assertEqual(ctx.exception.stage, "gate")
+        self.assertEqual(ctx.exception.hint, "skip_epub")
+
+
+class StopOnFirstFailureTests(unittest.TestCase):
+    def test_later_hops_not_run(self) -> None:
+        pw = MagicMock()
+        pw.__enter__.return_value = pw
+        pw.__exit__.return_value = None
+        browser = MagicMock()
+        ctx = MagicMock()
+        page = MagicMock()
+        ctx.new_page.return_value = page
+
+        def _submit(_page, keyword, patent_type="all"):
+            if keyword == "词2":
+                raise EpubNavError("submit", hint="skip_epub", message="导航超时")
+
+        cfg = dict(DEFAULTS)
+        cfg["stop_on_first_nav_failure"] = True
+        with patch("cnipa_epub_crawler.sync_playwright", return_value=pw):
+            with patch("cnipa_epub_crawler._launch_browser", return_value=browser):
+                with patch("cnipa_epub_crawler._new_context", return_value=ctx):
+                    with patch("cnipa_epub_crawler.wait_for_epub_home_ready"):
+                        with patch(
+                            "cnipa_epub_crawler.submit_index_search",
+                            side_effect=_submit,
+                        ) as submit:
+                            with patch(
+                                "cnipa_epub_crawler._safe_page_content",
+                                return_value="<html></html>",
+                            ):
+                                with patch(
+                                    "cnipa_epub_crawler.parse_search_result_html",
+                                    return_value=[],
+                                ):
+                                    with patch(
+                                        "cnipa_epub_crawler.load_wait_config",
+                                        return_value=cfg,
+                                    ):
+                                        rows = search_epub_keywords(
+                                            ["词1", "词2", "词3"]
+                                        )
+        self.assertEqual(len(rows), 1)
+        self.assertEqual(submit.call_count, 2)
 
 
 if __name__ == "__main__":

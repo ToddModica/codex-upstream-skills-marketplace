@@ -52,7 +52,7 @@ git clone <本仓库 URL> "$env:USERPROFILE\.cursor\skills\patent-disclosure-ski
 
 若未使用上述 `skills/` 布局，也可**直接用 Cursor 打开本仓库根目录**作为工作区。分步指令在：
 
-- `skills/patent-disclosure/prompts/`（交底；含 `invention/`、`utility_model/`、`design/` 以及填表 / 线稿）
+- `skills/patent-disclosure/prompts/`（交底；含 `invention/`、`utility_model/`、`design/`、填表 / 线稿，以及旁路 `fence/` 保护型 1+N）
 - `skills/patent-application/prompts/`（申请文件四件套；须指定交底目录）
 - `skills/patent-docket/prompts/`（交底到申请一趟串起来；须显式）
 - `skills/patent-reader/prompts/`（通俗解读；含本包 `fill_*`）

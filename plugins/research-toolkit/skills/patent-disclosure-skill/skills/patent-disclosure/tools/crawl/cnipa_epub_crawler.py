@@ -10,10 +10,10 @@
 -------------------------------------------------------------------------------
 1. 启动浏览器（默认无头；系统 Chrome → Edge → 自带 Chromium；可用环境变量改为有界面）。
 2. 新建浏览器上下文：设定 **桌面 Chrome UA**、**zh-CN**、固定 **视口**（见 ``_new_context``），使请求形态接近普通用户浏览器。
-3. ``page.goto`` 站点首页，**wait_until="load"**。
-4. **等待首页可检索**：首页在访客到达后会先经 **前端脚本/WAF 一类逻辑**，未通过前 **不会出现** 检索输入框 ``#searchStr``。本实现通过 **周期性轮询 DOM**（每 3 秒一次，总时长见 ``EPUB_WAF_MAX_WAIT_SEC``，默认 180s）直到 ``#searchStr`` 出现；**不是**用 requests 直接 POST 能等价替代的步骤。
-5. ``page.fill`` 将关键词写入 ``#searchStr``，对 ``#indexForm`` 执行 **submit**（而非单独点按钮），并等待结果页导航 **commit**。
-6. 等待结果页就绪：标题为 **「专利查询结果展示」或「无查询结果」**（见 ``EPUB_TITLE_*`` 常量），且 ``#result`` 内出现列表条目（``div.item`` / ``h1.title``）或明确零结果文案；不等待完整 ``load``。国知局改版时需同步调整常量与 ``_RESULT_PAGE_READY_JS``。
+3. ``page.goto`` 站点首页（``wait_until`` 与超时见 ``cnipa_epub_wait.yaml``，默认 ``commit`` / 30s）。
+4. **等待首页可检索**：首页经前端/WAF 后才出现 ``#searchStr``。框已在则立刻继续，否则短轮询（默认 20s）。失败阶段 ``gate``，**不是** 0 条命中。
+5. ``page.fill`` 写入 ``#searchStr``，对 ``#indexForm`` **submit**，等结果标题就绪（默认 40s）；**0 条**是标题「无查询结果」，与提交超时分开。
+6. 结果页：标题为 **「专利查询结果展示」或「无查询结果」**，且 ``#result`` 内有条目或零结果文案。国知局改版时须同步 ``EPUB_TITLE_*`` 与 ``_RESULT_PAGE_READY_JS``。
 7. ``page.content()`` 取全页 HTML；若处于导航中抛错则 **重试退避**（``_safe_page_content``），避免竞态。
 8. 后续解析由 **`cnipa_epub_parse.py`** 完成（本文件 ``search_epub_keyword`` 内会调用）。
 
@@ -32,9 +32,10 @@
 - 本脚本命令行默认仍接受一个参数字符串（可含空格）；含空格时与浏览器内一次提交一致，语义上仍是 **整句 AND**，不等同于拆词多查。
 
 -------------------------------------------------------------------------------
-环境变量
+等待参数
 -------------------------------------------------------------------------------
-  EPUB_WAF_MAX_WAIT_SEC  轮询等待 #searchStr 的最长时间，默认 180
+  ``cnipa_epub_wait.yaml``（同目录；``EPUB_WAIT_YAML`` 可改路径）。缺文件回退
+  ``cnipa_epub_wait.DEFAULTS``。``EPUB_WAF_MAX_WAIT_SEC`` 若已设置则覆盖 ``gate_poll_sec``。
   PLAYWRIGHT_HEADED        设为 1 时使用有界面 Chromium
   EPUB_RESULT_HTML         结果页 HTML 完整路径；不设则 tools/_last_result_YYYYMMDDHHmmss.html
 """
@@ -43,6 +44,7 @@ from __future__ import annotations
 import json
 import os
 import sys
+import time
 from datetime import datetime
 from pathlib import Path
 from typing import Callable
@@ -53,6 +55,7 @@ from playwright.sync_api import (
     Error,
     Page,
     Playwright,
+    TimeoutError as PlaywrightTimeoutError,
     sync_playwright,
 )
 
@@ -75,6 +78,7 @@ from patent_type import (
     epub_checkbox_states,
     normalize_patent_type,
 )
+from cnipa_epub_wait import EpubNavError, load_wait_config, progress
 
 
 EPUB_BASE = "http://epub.cnipa.gov.cn/"
@@ -112,8 +116,68 @@ DEFAULT_USER_AGENT = (
     "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
     "(KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
 )
-def _max_wait_sec() -> float:
-    return float(os.environ.get("EPUB_WAF_MAX_WAIT_SEC", "180"))
+
+
+def _cfg() -> dict:
+    return load_wait_config()
+
+
+def _page_url(page: Page) -> str:
+    try:
+        return str(page.url or "")
+    except Exception:
+        return ""
+
+
+def _nav_hint(*, advanced: bool) -> str:
+    return "keep_round1" if advanced else "skip_epub"
+
+
+def _goto(page: Page, url: str, *, advanced: bool) -> None:
+    cfg = _cfg()
+    timeout_ms = int(cfg["goto_timeout_ms"])
+    wait_until = str(cfg["goto_wait_until"])
+    progress(f"stage=goto wait_until={wait_until} timeout_ms={timeout_ms} url={url}")
+    try:
+        page.goto(url, wait_until=wait_until, timeout=timeout_ms)
+    except (PlaywrightTimeoutError, Error) as exc:
+        raise EpubNavError(
+            "goto",
+            hint=_nav_hint(advanced=advanced),
+            message="打开公布站页面超时或失败",
+            timeout_s=timeout_ms / 1000.0,
+            url=url,
+        ) from exc
+
+
+def _wait_selector(
+    page: Page,
+    selector: str,
+    *,
+    advanced: bool,
+    max_wait_sec: float | None = None,
+) -> None:
+    cfg = _cfg()
+    limit = float(max_wait_sec) if max_wait_sec is not None else float(cfg["gate_poll_sec"])
+    step = float(cfg["gate_poll_step_sec"])
+    progress(f"stage=gate selector={selector} timeout_s={limit:g}")
+    deadline = time.monotonic() + limit
+    while True:
+        try:
+            if page.query_selector(selector):
+                return
+        except Error:
+            pass
+        if time.monotonic() >= deadline:
+            raise EpubNavError(
+                "gate",
+                hint=_nav_hint(advanced=advanced),
+                message=f"页面已打开但未出现 {selector}",
+                timeout_s=limit,
+                url=_page_url(page),
+            )
+        remaining = deadline - time.monotonic()
+        page.wait_for_timeout(int(min(step, max(remaining, 0.05)) * 1000))
 
 
 def _headed() -> bool:
@@ -126,24 +190,16 @@ def default_result_html_path() -> Path:
 
 
 def wait_for_epub_home_ready(page: Page, *, max_wait_sec: float | None = None) -> None:
-    limit = max_wait_sec if max_wait_sec is not None else _max_wait_sec()
-    page.goto(EPUB_BASE, wait_until="load", timeout=120_000)
-    elapsed = 0.0
-    step = 3.0
-    while elapsed < limit:
-        page.wait_for_timeout(int(step * 1000))
-        elapsed += step
-        if page.query_selector("#searchStr"):
-            return
-    raise TimeoutError(
-        f"{limit}s 内未出现检索框 #searchStr；可增大 EPUB_WAF_MAX_WAIT_SEC 或设置 PLAYWRIGHT_HEADED=1"
-    )
+    if page.query_selector("#searchStr"):
+        return
+    _goto(page, EPUB_BASE, advanced=False)
+    _wait_selector(page, "#searchStr", advanced=False, max_wait_sec=max_wait_sec)
 
 
 def open_epub_advanced_search(page: Page) -> None:
     """Open CNIPA's fielded search after the browser session passed the home gate."""
-    page.goto(EPUB_ADVANCED, wait_until="domcontentloaded", timeout=120_000)
-    page.wait_for_selector("#advForm #e72", timeout=120_000)
+    _goto(page, EPUB_ADVANCED, advanced=True)
+    _wait_selector(page, "#advForm #e72", advanced=True)
 
 
 def _safe_page_content(page: Page, *, max_attempts: int = 10) -> str:
@@ -166,13 +222,24 @@ def _safe_page_content(page: Page, *, max_attempts: int = 10) -> str:
     raise RuntimeError("_safe_page_content: 未返回内容")
 
 
-def _wait_result_page_ready(page: Page) -> None:
+def _wait_result_page_ready(page: Page, *, advanced: bool = False) -> None:
     """等结果页 title 与 #result 列表/零结果 DOM 就绪（不等完整 load）。"""
-    page.wait_for_function(
-        _RESULT_PAGE_READY_JS,
-        arg={"result": EPUB_TITLE_RESULT, "noHit": EPUB_TITLE_NO_HIT},
-        timeout=120_000,
-    )
+    timeout_ms = int(_cfg()["submit_timeout_ms"])
+    progress(f"stage=submit timeout_ms={timeout_ms}")
+    try:
+        page.wait_for_function(
+            _RESULT_PAGE_READY_JS,
+            arg={"result": EPUB_TITLE_RESULT, "noHit": EPUB_TITLE_NO_HIT},
+            timeout=timeout_ms,
+        )
+    except PlaywrightTimeoutError as exc:
+        raise EpubNavError(
+            "submit",
+            hint=_nav_hint(advanced=advanced),
+            message="提交后未出现结果页（有结果或明确0条）",
+            timeout_s=timeout_ms / 1000.0,
+            url=_page_url(page),
+        ) from exc
 
 
 def apply_epub_type_filter(page: Page, patent_type: str = TYPE_ALL) -> None:
@@ -229,19 +296,11 @@ def apply_epub_advanced_type_filter(page: Page, patent_type: str = TYPE_ALL) -> 
 
 
 def wait_for_epub_advanced_ready(page: Page, *, max_wait_sec: float | None = None) -> None:
-    """打开 /Advanced，等到分类号框 #e51。"""
-    limit = max_wait_sec if max_wait_sec is not None else _max_wait_sec()
-    page.goto(EPUB_ADVANCED, wait_until="load", timeout=120_000)
-    elapsed = 0.0
-    step = 3.0
-    while elapsed < limit:
-        page.wait_for_timeout(int(step * 1000))
-        elapsed += step
-        if page.query_selector("#e51"):
-            return
-    raise TimeoutError(
-        f"{limit}s 内未出现高级查询分类号框 #e51；可增大 EPUB_WAF_MAX_WAIT_SEC"
-    )
+    """打开 /Advanced，等到分类号框 #e51。框已在则不重新 goto。"""
+    if page.query_selector("#e51"):
+        return
+    _goto(page, EPUB_ADVANCED, advanced=True)
+    _wait_selector(page, "#e51", advanced=True, max_wait_sec=max_wait_sec)
 
 
 def submit_advanced_search(
@@ -251,7 +310,7 @@ def submit_advanced_search(
     class_code: str,
     patent_type: str = TYPE_ALL,
 ) -> None:
-    """高级查询：分类号 #e51 + 名称 #ti，类型勾选后提交。"""
+    """高级查询：分类号 #e51 + 名称 #ti，类型勾选后提交。等结果标题，不死等 AdvancedQuery+load。"""
     apply_epub_advanced_type_filter(page, patent_type)
     page.fill("#e51", class_code)
     if page.query_selector("#ti"):
@@ -263,8 +322,7 @@ def submit_advanced_search(
     if btn is None:
         raise RuntimeError("高级查询未找到提交按钮")
     btn.click()
-    page.wait_for_url("**/Dxb/AdvancedQuery", timeout=120_000)
-    _wait_result_page_ready(page)
+    _wait_result_page_ready(page, advanced=True)
 
 
 def submit_index_search(
@@ -275,18 +333,28 @@ def submit_index_search(
 ) -> None:
     apply_epub_type_filter(page, patent_type)
     page.fill("#searchStr", keyword)
-    with page.expect_navigation(timeout=120_000, wait_until="commit"):
-        form = page.query_selector("#indexForm")
-        if form:
-            form.evaluate("el => el.submit()")
-        else:
-            page.evaluate(
-                """() => {
-                const f = document.getElementById('indexForm');
-                if (f) f.submit();
-            }"""
-            )
-    _wait_result_page_ready(page)
+    timeout_ms = int(_cfg()["submit_timeout_ms"])
+    try:
+        with page.expect_navigation(timeout=timeout_ms, wait_until="commit"):
+            form = page.query_selector("#indexForm")
+            if form:
+                form.evaluate("el => el.submit()")
+            else:
+                page.evaluate(
+                    """() => {
+                    const f = document.getElementById('indexForm');
+                    if (f) f.submit();
+                }"""
+                )
+    except (PlaywrightTimeoutError, Error) as exc:
+        raise EpubNavError(
+            "submit",
+            hint=_nav_hint(advanced=False),
+            message="首页提交后导航超时",
+            timeout_s=timeout_ms / 1000.0,
+            url=_page_url(page),
+        ) from exc
+    _wait_result_page_ready(page, advanced=False)
 
 
 def fetch_epub_result_html(
@@ -312,11 +380,14 @@ def search_epub_keywords(
     """一场检索共用一个浏览器；一词一页，返回与检索次数等长的 ``(html, hits)``。
 
     ``class_codes`` 非空时走公布站 **高级查询**（分类号 + 名称）；``terms`` 可为空（只按分类号，保底放宽）。
+    导航失败默认停止后续跳（``stop_on_first_nav_failure``）；已完成的跳仍返回。
     """
     codes = [c.strip() for c in (class_codes or []) if c and str(c).strip()]
     if not terms and not codes:
         return []
     kw_list = list(terms) if terms else [""]
+    cfg = _cfg()
+    stop = bool(cfg["stop_on_first_nav_failure"])
     pw_gen = playwright_factory or sync_playwright
     with pw_gen() as p:
         browser = _launch_browser(p)
@@ -324,26 +395,53 @@ def search_epub_keywords(
         try:
             page = context.new_page()
             out: list[tuple[str, list[EpubSearchHit]]] = []
+            hops: list[tuple[str, str]]
             if not codes:
-                for keyword in kw_list:
-                    if not keyword:
-                        continue
-                    wait_for_epub_home_ready(page)
-                    submit_index_search(page, keyword, patent_type=patent_type)
+                hops = [("", keyword) for keyword in kw_list if keyword]
+            else:
+                hops = [(code, keyword) for code in codes for keyword in kw_list]
+            total = len(hops)
+            for i, (code, keyword) in enumerate(hops, start=1):
+                label = (
+                    f"stage=home term={keyword} i={i}/{total}"
+                    if not code
+                    else f"stage=advanced class={code} term={keyword or '-'} i={i}/{total}"
+                )
+                progress(label)
+                try:
+                    if not code:
+                        wait_for_epub_home_ready(page)
+                        submit_index_search(page, keyword, patent_type=patent_type)
+                    else:
+                        wait_for_epub_advanced_ready(page)
+                        submit_advanced_search(
+                            page,
+                            keyword,
+                            class_code=code,
+                            patent_type=patent_type,
+                        )
                     html = _safe_page_content(page)
                     out.append((html, parse_search_result_html(html)))
-                return out
-            for code in codes:
-                for keyword in kw_list:
-                    wait_for_epub_advanced_ready(page)
-                    submit_advanced_search(
-                        page,
-                        keyword,
-                        class_code=code,
-                        patent_type=patent_type,
+                except EpubNavError as exc:
+                    remaining = total - i
+                    progress(
+                        f"stage={exc.stage} remaining_skipped={remaining} hint={exc.hint}"
                     )
-                    html = _safe_page_content(page)
-                    out.append((html, parse_search_result_html(html)))
+                    if not stop:
+                        print(
+                            f"EPUB_NOTE: hop_failed_continue stage={exc.stage} hint={exc.hint}",
+                            file=sys.stderr,
+                            flush=True,
+                        )
+                        continue
+                    print(
+                        f"EPUB_NOTE: stopped_after_failure stage={exc.stage} hint={exc.hint}",
+                        file=sys.stderr,
+                        flush=True,
+                    )
+                    if out:
+                        return out
+                    raise
             return out
         finally:
             context.close()
@@ -440,6 +538,9 @@ if __name__ == "__main__":
     kw = (filtered[0] if filtered else "批处理").strip()
     try:
         out_html, hits = search_epub_keyword(kw, patent_type=patent_type)
+    except EpubNavError as e:
+        print("CNIPA_EPUB_ERROR:", e, file=sys.stderr)
+        sys.exit(1)
     except Exception as e:
         print("CNIPA_EPUB_ERROR:", e, file=sys.stderr)
         sys.exit(1)

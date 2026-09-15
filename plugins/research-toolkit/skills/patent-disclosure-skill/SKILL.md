@@ -1,9 +1,9 @@
 ---
 name: patent-disclosure-skill
 description: "中国专利技能：挖掘专利点与编写交底书（发明/实用/外观），把已有交底改写成申请文件四件套，也可按材料交底申请一起做，按著录字段检索公布公告，通俗解读专利，基于已读库打开专利地图，对照审查口径出政策简报，辅助审查答复。| China patents skill: mine patent points and draft disclosures, rewrite an existing disclosure into application documents, or chain disclosure-then-application from inventor materials in one pass (ask when facts are missing; at most three issue-list rounds), search CNIPA bibliographic records, explain patents, open a local patent map from interpreted notes, brief examination-policy changes, and assist office-action responses."
-version: "4.7.0"
+version: "4.8.1"
 user-invocable: true
-argument-hint: "[可选：项目路径 / 交底书 / 申请底稿 / 交底申请一起做 / 专利检索 / 专利号或 PDF / 专利地图 / 政策简报 / 审查答复]"
+argument-hint: "[可选：项目路径 / 交底书 / 申请底稿 / 交底申请一起做 / 专利检索 / 专利号或 PDF / 专利地图 / 专利围栏 / 政策简报 / 审查答复]"
 allowed-tools: Read, Write, Edit, Grep, Glob, WebSearch, Bash
 ---
 
@@ -13,7 +13,7 @@ allowed-tools: Read, Write, Edit, Grep, Glob, WebSearch, Bash
 
 | 能力 | 做什么 | 何时进入 | 入口 |
 |------|--------|----------|------|
-| **交底** | 挖专利点 → 查新 → 成稿 → 迭代 | 专利挖掘、交底书、查新、实用新型、外观设计；`/patent-disclosure`、`/交底书` | `skills/patent-disclosure/SKILL.md` |
+| **交底** | 挖专利点 → 查新 → 成稿 → 迭代；首篇定稿后可做保护型 1+N 专利布局 | 专利挖掘、交底书、查新、实用新型、外观设计、专利布局、专利围栏、族树、保护型1+N；`/patent-disclosure`、`/交底书` | `skills/patent-disclosure/SKILL.md` |
 | **申请文件** | 已有交底 → 权要 / 说明书 / 摘要 / 附图 | **须显式**且**指定交底目录**：申请文件、申请底稿、申报材料、`/申请底稿`、`/patent-apply`。仅缺材料则终止；内容争议写入问题清单；交付末尾须摘要清单；改已有产出则另存 | `skills/patent-application/SKILL.md` |
 | **案卷** | 按发明人/工程师给的材料一趟写出交底书和申请文件；清单缺口最多来回三轮，缺事实问人、不编 | **须显式**：交底申请一起做、从零出交底和申请、一条龙、帮写交底再出申请、按清单改、会稿、案卷、`/patent-docket`。只写交底或已有交底只出四件套 → 不要进本案。状态 `outputs/docket/` | `skills/patent-docket/SKILL.md` |
 | **检索** | 公布站高级查询（发明人/申请人/分类号/名称/摘要等）；单图或权要可先抽关键字再查 | 按著录字段查公布公告、个人公开清单、以图/权要生成检索式；`/patent-search`。普通多条件**不要**默认翻完全部分页 | `skills/patent-search/SKILL.md` |
@@ -29,13 +29,14 @@ allowed-tools: Read, Write, Edit, Grep, Glob, WebSearch, Bash
 - 专利号或 PDF 且意图为「读懂」→ **优先解读**，不跑交底 Step 1–8。
 - **禁止**因写交底或读专利自动进入政策简报、审查答复、申请文件、案卷或专利地图。申请文件必须用户点名并给出交底目录；缺 schema / 线稿 / 交底书则停，引导先补交底。内容争议不阻塞主文件。
 - **案卷**必须用户点名（交底申请一起做 / 从零出交底和申请 / 一条龙 / 帮写交底再出申请 / 按清单改 / 会稿 / `/patent-docket`）。点名后 `Read` `skills/patent-docket/SKILL.md`；由案卷再 `Read` 交底或申请入口。调度申请视为已点名申请文件，仍须有交底目录。只写交底、或已有交底只出四件套 → 不要进案卷。
+- 用户说「专利布局 / 专利围栏 / 族树 / 保护型1+N」→ **交底包旁路** `prompts/fence/`，不要进专利地图。须分解→突围→矩阵再立项；立项校验写入 `专利布局.md`；未确认立项说明不得分件写多篇交底。
 - 交底 Step 5 查新只用交底包轻量检索（一词一页）；按发明人/申请人等做著录检索时只用检索包，两者不要混用。
 
 ## 目录
 
 ```
 SKILL.md                         # 本文件：子技能路由入口
-skills/patent-disclosure/        # 交底（含填表/线稿/CAD/公式/docx）
+skills/patent-disclosure/        # 交底（含填表/线稿/CAD/公式/docx；围栏旁路）
 skills/patent-application/       # 申请文件四件套（须显式；须指定交底目录）
 skills/patent-docket/            # 案卷：交底到申请一趟串起来（须显式）
 skills/patent-search/            # 著录检索
@@ -48,10 +49,9 @@ skills/patent-exam-policy/        # 政策简报（技能进化为旁路）
 ## 环境与约定
 
 - **默认语言**：面向用户的检索清单、交底书、申请文件、案卷 TRACKER、解读和审查答复用简体中文；脚本机读前缀与 JSON 字段名保持稳定。
-- **脚本判读（尤其 Windows）**：stderr 有字 **不等于** 失败。以 **退出码 0** 和机读前缀为准：`EPUB_HITS_JSON:` / `EPUB_SEARCH_MD:` / `EPUB_SEARCH_JSON:` / `EPUB_CLASS_HINT:`、`PROBE:` / `BROWSER:`、`MERMAID:` / `DOCX:`、`APPLICATION_GATE:` / `APPLICATION_CLAIMS:` / `APPLICATION_NUMERALS:`、`DOCKET_DIR:` / `DOCKET_YAML:` / `DOCKET_OK:` / `DOCKET_ERROR:`、`MAP_URL:` / `MAP_PORT:` / `MAP_VAULT:` / `MAP_SOURCE:` / `MAP_CACHE:`。PowerShell 可能把 stderr 标成 `NativeCommandError`；**禁止**因此重跑安装或把查新降级 WebSearch。
 - **专利类型**：未显式指定时交底**默认发明**。
 - **脚本路径**：相对本技能仓库根（本文件所在目录）。整仓：`python skills/patent-disclosure/tools/…`。当前工作区不是本仓库时，把技能安装目录接到命令前面。单独拷走某一子包时，该包内用 `python tools/…`。不要写厂商环境变量。
-- **用户产出**：写在当前工作区 `outputs/`（解读 `outputs/patent_reader/`，检索 `outputs/patent-search/`，政策 `outputs/exam-policy/`，审查答复 `outputs/oa/`，申请文件 `outputs/patent-application/`，案卷 `outputs/docket/`），不要写到技能安装目录或 `tmp/`。调用脚本时 cwd 用工作区根；`-o` / `-w` 用上述相对路径。
+- **用户产出**：写在当前工作区 `outputs/`（解读 `outputs/patent_reader/`，检索 `outputs/patent-search/`，政策 `outputs/exam-policy/`，审查答复 `outputs/oa/`，申请文件 `outputs/patent-application/`，案卷 `outputs/docket/`，交底围栏 `outputs/{案件}/fence/`），不要写到技能安装目录或 `tmp/`。调用脚本时 cwd 用工作区根；`-o` / `-w` 用上述相对路径。
 
 ## 执行前核对
 
@@ -63,5 +63,6 @@ skills/patent-exam-policy/        # 政策简报（技能进化为旁路）
 □ 申请文件已指定交底目录；门禁未过未开写
 □ 案卷未写交底/申请正文；派工只 Read 对方 SKILL.md
 □ 未跨包调用其他子技能的 tools/
+□ 围栏未确认立项说明未批量写多篇；未把布局说明当成专利地图
 □ 未把政策简报当成改技能；无点名未改交底包以外的目录
 ```

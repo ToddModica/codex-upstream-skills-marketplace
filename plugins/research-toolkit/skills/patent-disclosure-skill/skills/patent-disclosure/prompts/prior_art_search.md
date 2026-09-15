@@ -19,15 +19,27 @@
 
    1. **第一轮（召回）**：首页关键词，2～8 个检索单位（规则见下第 4 点）。成功时 JSON 含 **`ipc_codes` / `loc_codes`**（来自结果页「分类号」）；stderr 可能有 **`EPUB_CLASS_HINT: kind=ipc|loc codes=…`**。
    2. **抽出分类号**：发明/实用新型用 IPC 前缀（如 `B01J20`，不要只留一个过细的 `B01J20/26/…`）；外观用 **LOC（洛迦诺）**（如 `26-05`）。取 **1～3 个**高频号。无分类号则跳过第二轮，但仍须按手段过滤第一轮。
-   3. **第二轮（收口）**：同一 `--type`，加 **`--class`**（`--ipc` / `--loc` 同义；最多 3 个号；带 `--class` 时词数最多 3）。核心词比第一轮更贴本案手段。脚本走公布站 **高级查询**（分类号 + 名称），例如：
+   3. **第二轮（收口）**：同一 `--type`，加 **`--class`**（`--ipc` / `--loc` 同义）。**默认一次命令 1 个分类号 × 1 个名称词**（`tools/crawl/cnipa_epub_wait.yaml` 的 `advanced_max_*`；改 YAML 即可，不必改脚本）。核心词比第一轮更贴本案手段。需要第二个号或第二个词时 **再发一条命令**，不要一条里堆 3×3。脚本走公布站 **高级查询**（分类号 + 名称），例如：
 
       ```bash
-      python …/cnipa_epub_search.py --type invention --class B01J20,B01D53 胺功能化
+      python …/cnipa_epub_search.py --type invention --class B01J20 胺功能化
+      python …/cnipa_epub_search.py --type invention --class B01D53 胺功能化
       python …/cnipa_epub_search.py --type design --class 26-05 台灯
       python …/cnipa_epub_search.py --type design --class 26-05
       ```
 
-      第二轮 0 条：减少分类号或换更短核心词后重试，再按下面保底处理；**不要**改走需登录的专利检索及分析系统。
+      命令行多传了会 **截断**（stderr `EPUB_HINT: truncated …`），不会直接 usage 失败。
+
+      **第二轮失败 ≠ 0 条**：看 stderr `CNIPA_EPUB_ERROR:` 的 `stage=` 与 `hint=`。
+
+      | stage | 含义 | 后续 |
+      |-------|------|------|
+      | `goto` | 页面打不开 | 高级查询：`hint=keep_round1`，**保留第一轮**，按下面保底回补；**不要**当空数组、**不要**进 §B |
+      | `gate` | 页到了但检索框不出现 | 同上 |
+      | `submit` | 已提交但结果页不来 | 同上 |
+      | （退出码 0 且 `EPUB_HITS_JSON: []`） | 真的 0 条 | 减少分类号或换更短核心词后重试，再按下面保底处理 |
+
+      **不要**把 `stage=goto|gate|submit` 写成「检索不到」。**不要**改走需登录的专利检索及分析系统。
 
    4. **写 1.1（条数门槛 + 保底）**：第二轮是精选层，第一轮是库存。按分类号重合 + 与本案相同的技术手段（吸附/接枝/再生，或外观的造型要点）筛选；可用 `ipc_codes`/`loc_codes` 对照 `EPUB_CLASS_HINT`。**禁止**把第一轮 8 个词合并后的大杂烩整表写入。
 
@@ -69,11 +81,15 @@
 
    - **合并**：一次调用若 stderr 含 **`EPUB_MERGE:`**，以 **stdout** 上**唯一一行** **`EPUB_HITS_JSON:`** 为准（脚本已按 `pub_number` 去重）。仅当拆成多批调用时，Agent 再按 **`pub_number`**（无则 **`link`**）合并。
    - **`cnipa_epub_search.py`** 按空白拆段、**同一浏览器**内一段一查并去重（**stderr** 可出现 **`EPUB_MERGE:`**）。
-   - 成功时 **stdout 仅一行** **`EPUB_HITS_JSON:`** + JSON 数组（UTF-8，含中文 `abstract`、**`ipc_codes` / `loc_codes`**）；**`EPUB_MERGE:`** / **`EPUB_NOTE:`** / **`EPUB_HINT:`** / **`EPUB_CLASS_HINT:`** / **`BROWSER:`** 等在 **stderr**（多为 ASCII 机读标记）。
+   - 成功时 **stdout 仅一行** **`EPUB_HITS_JSON:`** + JSON 数组（UTF-8，含中文 `abstract`、**`ipc_codes` / `loc_codes`**）；**`EPUB_PROGRESS:`** / **`EPUB_MERGE:`** / **`EPUB_NOTE:`** / **`EPUB_HINT:`** / **`EPUB_CLASS_HINT:`** / **`BROWSER:`** / **`CNIPA_EPUB_ERROR:`** 等在 **stderr**（多为 ASCII 机读标记）。`EPUB_PROGRESS:` 标明当前卡在 `goto` / `gate` / `submit` 哪一段，短超时也不应静默。
    - **stderr ≠ 失败**：退出码 **0** 且 stdout 有 `EPUB_HITS_JSON:` 即为成功。PowerShell 可能把 stderr 显示为 `NativeCommandError` 或中文乱码，**禁止**因此判定「未命中」或降级 WebSearch。**禁止** `2>&1` 后再在混合流里找 JSON。脚本已 UTF-8 输出，不必先 `chcp 65001`。
    - 解析命中时请以 **stdout 该行 JSON 为准**。
    - 将 JSON 中**可核验**的公开号、标题、**国知局站点内详情链接**写入查新笔记与 1.1（见下 **`abstract` 必用**）。
-   - **降级条件**（满足任一则进入 **B**）：**退出码非 0**、超时、无 Playwright 且安装失败、stdout **无** `EPUB_HITS_JSON:`、**`EPUB_HITS_JSON` 为空数组**、或条目经人工核对明显与主题无关。**仅有 stderr / 乱码 / NativeCommandError 而退出码为 0 且 JSON 非空 → 不降级。**
+   - **三种失败，三种后续（禁止混用）**：
+     1. **导航失败**（退出码非 0，stderr 有 `CNIPA_EPUB_ERROR:` `stage=goto|gate|submit`）：看 `hint=`。`skip_epub`（通常是第一轮首页打不开）→ 才进入 **B**。`keep_round1`（通常是第二轮高级查询）→ **保留第一轮 JSON**，按 3b.4 回补；**禁止**当成 0 条，**禁止**因此进 §B。
+     2. **真 0 条**（退出码 0，`EPUB_HITS_JSON: []`）：换词 / 减分类号 / 回补；不是超时。
+     3. **无 Playwright 且安装失败**：进入 **B**。探测或启动仍失败 → **B**，不要反复安装。
+   - **降级条件**（满足才进入 **B**）：第一轮 `hint=skip_epub`、无 Playwright 且安装失败、第一轮 stdout **无** `EPUB_HITS_JSON:`、第一轮 **`EPUB_HITS_JSON` 为空数组**且无法按分类号回补、或条目经人工核对明显与主题无关。**第二轮超时/导航失败单独不触发 §B。** **仅有 stderr / 乱码 / NativeCommandError 而退出码为 0 且 JSON 非空 → 不降级。** 等待上限见 `tools/crawl/cnipa_epub_wait.yaml`。
 
 6. **`abstract` 字段（国知局条目，规定必用）**
 
@@ -140,3 +156,11 @@
   > 检索说明：在**国家知识产权局专利公布公告系统**及 **Google Patents** 中，以「批任务调度」「异构集群调度」「任务队列重排」「负载感知调度」等为检索词进行检索；部分条目的公开文本与著录项以 Google Patents 页面复核。
 
 查新笔记（Agent 内部或对话留档）仍可记录是否调用脚本、是否降级 WebSearch；**上述内容不得原样抄进交底书 1.1**。
+
+## 保护型 1+N 旁路里的查新
+
+主路径 Step 5 **不要改**。旁路两处仍用本包 `cnipa_epub_search.py`，一词一页，**禁止**调 `patent-search` 的 `tools/`：
+
+1. **填功效矩阵密度**：手段词 + 功效词；没跑过的格子标 `unchecked`，不得写成空白/蓝海。  
+2. **分件成文前**：只搜本件 `necessary_features`，写入**该篇** 1.1，禁止抄首篇对比清单。
+
